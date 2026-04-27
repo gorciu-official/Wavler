@@ -1,7 +1,8 @@
 import process from "node:process";
 
 export enum ErrorCode {
-    MULTILINE_NON_TEMPLATE_STRING
+    MULTILINE_NON_TEMPLATE_STRING,
+    UNTERMINATED_STRING_LITERAL
 };
 
 export enum WarnCode {

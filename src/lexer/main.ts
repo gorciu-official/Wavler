@@ -20,8 +20,11 @@ export class Lexer {
 
     public main(code: string) {
         let escaping = false;  
+        let last_line = '';
         
         for (const line of code.split('\n')) {
+
+        last_line = line;
         
         if (this.current_token?.type == TokenType.STRING) {
             error({
@@ -89,6 +92,15 @@ export class Lexer {
             }
             } 
         }
+
+        }
+
+        if (this.current_token?.type == TokenType.STRING || this.current_token?.type == TokenType.TEMPLATE_STRING) {
+            error({
+                code: ErrorCode.UNTERMINATED_STRING_LITERAL,
+                reason: "Unterminated string literal",
+                line: last_line
+            });
         }
     }
 
