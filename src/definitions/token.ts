@@ -6,7 +6,10 @@ export enum TokenType {
     STRING, TEMPLATE_STRING,
 
     IF_KEYWORD, ELSE_KEYWORD,
-    SWITCH_KEYWORD, CASE_KEYWORD
+    SWITCH_KEYWORD, CASE_KEYWORD,
+
+    PLUS_SIGN, MINUS_SIGN, 
+    STAR_SIGN, SLASH_SIGN
 }
 
 type NonSpecialTokenType = Exclude<

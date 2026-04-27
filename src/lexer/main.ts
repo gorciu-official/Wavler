@@ -101,8 +101,11 @@ export class Lexer {
 
             switch (char) {
             case ' ':
+            case '\n':
+            case '\r':
                 this.applyCurrent();
                 break;
+
             case '}':
                 this.pushSingle({ type: TokenType.RBRACE, value: "}" });
                 break;
@@ -115,6 +118,20 @@ export class Lexer {
             case ')':
                 this.pushSingle({ type: TokenType.RPAREN, value: ")" });
                 break;
+
+            case '+':
+                this.pushSingle({ type: TokenType.PLUS_SIGN, value: "+" });
+                break;
+            case '-':
+                this.pushSingle({ type: TokenType.MINUS_SIGN, value: "-" });
+                break;
+            case '*':
+                this.pushSingle({ type: TokenType.STAR_SIGN, value: "*" });
+                break;
+            case '/':
+                this.pushSingle({ type: TokenType.SLASH_SIGN, value: "/" });
+                break;
+
             default: {
                 if (this.current_token?.type !== TokenType.IDENTIFIER) {
                     this.applyCurrent();

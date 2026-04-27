@@ -21,7 +21,7 @@ If you want to pass the file instead of random testing code, pass it as fifth ar
 3. [ ] Text preprocessor
 4. [X] EOF handling for unterminated strings
 5. [X] Numbers support in lexer 
-6. [ ] Base operation signs (like `+`, `-`, `*`, `/`)
+6. [X] Base operation signs lexer support (like `+`, `-`, `*`, `/`)
 7. [ ] Bitshift lexer support
 
 That's for now lmao.
