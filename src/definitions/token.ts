@@ -9,7 +9,28 @@ export enum TokenType {
     SWITCH_KEYWORD, CASE_KEYWORD
 }
 
-export default interface Token {
-    type: TokenType;
-    value: string;
-};
+type NonSpecialTokenType = Exclude<
+    TokenType,
+    TokenType.NUMBER | TokenType.TEMPLATE_STRING
+>;
+
+export interface BaseToken<T extends TokenType, V> {
+    type: T;
+    value: V;
+}
+
+export type NumberToken = BaseToken<TokenType.NUMBER, number>;
+
+export type TemplateStringToken = BaseToken<
+    TokenType.TEMPLATE_STRING,
+    (string | Token)[]
+>;
+
+export type DefaultToken = BaseToken<NonSpecialTokenType, string>;
+
+export type Token =
+    | NumberToken
+    | TemplateStringToken
+    | DefaultToken;
+
+export default Token;

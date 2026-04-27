@@ -18,21 +18,18 @@ export class Lexer {
     
         // numbers
         if (/^0b[01]+$/i.test(value)) {
-            ident.type = TokenType.NUMBER;
-            ident.value = parseInt(value.slice(2), 2).toString();
+            ident = { type: TokenType.NUMBER, value: parseInt(value.slice(2), 2) };
         } 
         else if (/^0x[0-9a-f]+$/i.test(value)) {
-            ident.type = TokenType.NUMBER;
-            ident.value = parseInt(value.slice(2), 16).toString();
+            ident = { type: TokenType.NUMBER, value: parseInt(value.slice(2), 16) };
         } 
         else if (/^[0-9]+(\.[0-9]+)?$/.test(value)) {
-            ident.type = TokenType.NUMBER;
-            ident.value = String(Number(value)); // normalizing time
+            ident = { type: TokenType.NUMBER, value: Number(value) };
         }
 
         // keywords
         else if (value in keywords) {
-            ident.type = keywords[value];
+            ident.type = keywords[value] as TokenType.IDENTIFIER; // trust me
         }
     
         return ident;
@@ -46,11 +43,9 @@ export class Lexer {
         this.current_token = null;
     }
 
-    private pushSingle(tokenType: TokenType, val: string) {
+    private pushSingle(tk: Token) {
         this.applyCurrent(); // if previous token didnt end
-        this.current_token = {
-            type: tokenType, value: val
-        };
+        this.current_token = tk;
         this.applyCurrent();
     }
 
@@ -109,16 +104,16 @@ export class Lexer {
                 this.applyCurrent();
                 break;
             case '}':
-                this.pushSingle(TokenType.RBRACE, "}");
+                this.pushSingle({ type: TokenType.RBRACE, value: "}" });
                 break;
             case '{':
-                this.pushSingle(TokenType.LBRACE, "{");
+                this.pushSingle({ type: TokenType.LBRACE, value: "{" });
                 break;
             case '(':
-                this.pushSingle(TokenType.LPAREN, "(");
+                this.pushSingle({ type: TokenType.LPAREN, value: "(" });
                 break;
             case ')':
-                this.pushSingle(TokenType.RPAREN, ")");
+                this.pushSingle({ type: TokenType.RPAREN, value: ")" });
                 break;
             default: {
                 if (this.current_token?.type !== TokenType.IDENTIFIER) {
