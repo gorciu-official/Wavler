@@ -16,11 +16,11 @@ If you want to pass the file instead of random testing code, pass it as fifth ar
 
 **Roadmap**
 
-1. [ ] Keyword support in lexer 
+1. [X] Keyword support in lexer 
 2. [ ] Support for template strings in lexer 
 3. [ ] Text preprocessor
 4. [X] EOF handling for unterminated strings
-5. [ ] Numbers support in lexer 
+5. [X] Numbers support in lexer 
 6. [ ] Base operation signs (like `+`, `-`, `*`, `/`)
 7. [ ] Bitshift lexer support
 

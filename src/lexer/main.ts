@@ -5,8 +5,44 @@ export class Lexer {
     private tokens: Token[] = [];
     private current_token: Token | null = null;
 
+    private transformIdentifiers(ident: Token): Token {
+        if (ident.type !== TokenType.IDENTIFIER) 
+            return ident;
+    
+        const keywords: Record<string, TokenType> = {
+            "if": TokenType.IF_KEYWORD, "else": TokenType.ELSE_KEYWORD,
+            "switch": TokenType.SWITCH_KEYWORD, "case": TokenType.CASE_KEYWORD
+        };
+
+        const value = ident.value;
+    
+        // numbers
+        if (/^0b[01]+$/i.test(value)) {
+            ident.type = TokenType.NUMBER;
+            ident.value = parseInt(value.slice(2), 2).toString();
+        } 
+        else if (/^0x[0-9a-f]+$/i.test(value)) {
+            ident.type = TokenType.NUMBER;
+            ident.value = parseInt(value.slice(2), 16).toString();
+        } 
+        else if (/^[0-9]+(\.[0-9]+)?$/.test(value)) {
+            ident.type = TokenType.NUMBER;
+            ident.value = String(Number(value)); // normalizing time
+        }
+
+        // keywords
+        else if (value in keywords) {
+            ident.type = keywords[value];
+        }
+    
+        return ident;
+    }
+
     private applyCurrent() {
-        if (this.current_token) this.tokens.push(this.current_token);
+        if (this.current_token) {
+            this.current_token = this.transformIdentifiers(this.current_token);
+            this.tokens.push(this.current_token);
+        }
         this.current_token = null;
     }
 
