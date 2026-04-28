@@ -3,7 +3,8 @@ import process from "node:process";
 export enum ErrorCode {
     MULTILINE_NON_TEMPLATE_STRING,
     UNTERMINATED_STRING_LITERAL,
-    NUMBER_UNSUPPORTED_CHARACTER
+    NUMBER_UNSUPPORTED_CHARACTER,
+    EXPECTED_IDENTIFIER
 };
 
 export enum WarnCode {
@@ -14,7 +15,7 @@ export function error(opts: {
     code: ErrorCode,
     reason: string,
     line?: string
-}) {
+}): never {
     console.log(`\x1b[31mERR<e${opts.code}>\x1b[0m: ${opts.reason}`);
     if (opts.line) console.log(opts.line);
     process.exit(1);

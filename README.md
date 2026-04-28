@@ -23,7 +23,7 @@ If you want to pass the file instead of random testing code, pass it as fifth ar
 5. [X] Numbers support in lexer 
 6. [X] Base operation signs lexer support (like `+`, `-`, `*`, `/`)
 7. [X] Bitshift lexer support
-8. [ ] Mathematics expression AST parsing
+8. [X] Mathematics expression AST parsing
 9. [ ] Base support for parsing and lexerring `function main() { return 49; }`
 
 That's for now lmao.
