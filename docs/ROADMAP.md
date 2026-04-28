@@ -8,7 +8,11 @@
 6. [X] Base operation signs lexer support (like `+`, `-`, `*`, `/`)
 7. [X] Bitshift lexer support
 8. [X] Mathematics expression AST parsing
-9. [ ] Base support for parsing and lexerring `function main() { return 49; }`
+9. [ ] Base support for parsing and lexing `function main() { return 49; }`
 10. [X] Semicolon as statement terminator.
+11. [ ] Lexing and parsing constant assigments.
+12. [ ] Same as previous point, but variables (`let`)
+13. [ ] Parser and lexer support for ternary operator 
+14. [ ] If expressions lexer and parser support 
 
 That's for now lmao.
