@@ -16,6 +16,6 @@
 14. [ ] If expressions lexer and parser support
 15. [ ] Support for explicit return types in functions
 16. [X] Support for explicit parameter types in functions 
-17. [ ] Support for explicit variable types
+17. [X] Support for explicit variable types
 
 That's for now lmao.
