@@ -11,7 +11,8 @@ export class Lexer {
     
         const keywords: Record<string, TokenType> = {
             "if": TokenType.IF_KEYWORD, "else": TokenType.ELSE_KEYWORD,
-            "switch": TokenType.SWITCH_KEYWORD, "case": TokenType.CASE_KEYWORD
+            "switch": TokenType.SWITCH_KEYWORD, "case": TokenType.CASE_KEYWORD,
+            "function": TokenType.FUNCTION_KEYWORD, "return": TokenType.RETURN_KEYWORD
         };
 
         const value = ident.value;
@@ -49,6 +50,14 @@ export class Lexer {
         this.applyCurrent();
     }
 
+    private pushLineTerminator() {
+        this.applyCurrent(); // this.current_token should be clear by now 
+        const last_index = this.tokens.length - 1;
+        if (last_index < 0) return; 
+        if (this.tokens[last_index]?.type !== TokenType.SEMICOLON) 
+            this.pushSingle({ type: TokenType.SEMICOLON, value: ";" });
+    }
+
     public main(code: string) {
         let escaping = false;  
         let last_line = '';
@@ -64,6 +73,8 @@ export class Lexer {
                 line
             });
         }
+
+        this.pushLineTerminator();
 
         let i = 0;
 

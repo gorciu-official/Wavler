@@ -2,6 +2,11 @@ import process from "node:process";
 import { Lexer } from "./lexer/main.ts";
 import { Parser } from "./parser/main.ts";
 
+function verboseOutput(obj: object) {
+    const str = JSON.stringify(obj, null, 4);
+    console.log(str);
+}
+
 function main() {
     const code = 
         process.argv.some((a) => a.endsWith('.wvl'))
@@ -10,10 +15,10 @@ function main() {
 
     const lexer = new Lexer(); lexer.main(code);
     const lexer_result = lexer.getResult();
-    console.log(lexer_result);
+    verboseOutput(lexer_result); 
 
     const parser = new Parser(lexer_result);
-    console.log(parser.parse());
+    verboseOutput(parser.parse());
 }
 
 main();

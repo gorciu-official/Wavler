@@ -1,4 +1,4 @@
-import { ASTNode, BinaryOperator } from "../definitions/ast-node.ts";
+import { ASTNode, BinaryOperator, Expression, ExpressionStatement, FunctionDeclaration, ReturnStatement, Statement } from "../definitions/ast-node.ts";
 import Token, { TokenType } from "../definitions/token.ts";
 import { error, ErrorCode } from "../logging.ts";
 
@@ -24,21 +24,126 @@ export class Parser {
         return this.pos >= this.tokens.length;
     }
 
-    parse(): ASTNode[] {
-        const body: ASTNode[] = [];
+    parse(): Statement[] {
+        const body: Statement[] = [];
 
         while (!this.isAtEnd()) {
-            body.push(this.parseExpression(0));
-    
-            if (this.peek()?.type === TokenType.SEMICOLON) {
-                this.consume();
-            }
-        }    
+            body.push(this.parseStatement());
+        }
 
         return body;
     }
 
-    private parseExpression(minBP: number): ASTNode {
+    private parseStatement(): Statement {
+        if (this.peek().type === TokenType.SEMICOLON) {
+            this.consume();
+            return {
+                type: "EmptyStatement"
+            };
+        }
+
+        const token = this.peek();
+
+        switch (token.type) {
+            case TokenType.FUNCTION_KEYWORD:
+                return this.parseFunction();
+
+            case TokenType.RETURN_KEYWORD:
+                return this.parseReturn();
+
+            default:
+                return this.parseExpressionStatement();
+        }
+    }
+
+    private parseExpressionStatement(): ExpressionStatement {
+        const expr = this.parseExpression(0);
+    
+        if (this.peek()?.type === TokenType.SEMICOLON) {
+            this.consume();
+        }
+    
+        return {
+            type: "ExpressionStatement",
+            expression: expr,
+        };
+    }
+
+    private parseFunction(): FunctionDeclaration {
+        this.consume(); // FUNCTION_KEYWORD
+    
+        const nameToken = this.consume();
+        if (nameToken.type !== TokenType.IDENTIFIER) {
+            return error({
+                code: ErrorCode.EXPECTED_IDENTIFIER,
+                reason: "Expected identifier"
+            }); 
+        }
+    
+        this.consume(); // LPAREN
+    
+        const params: { type: 'any', name: string }[] = [];
+    
+        if (this.peek().type !== TokenType.RPAREN) {
+            do {
+                const param = this.consume();
+                if (param.type !== TokenType.IDENTIFIER) {
+                    return error({
+                        code: ErrorCode.EXPECTED_IDENTIFIER,
+                        reason: "Expected identifier"
+                    }); 
+                }
+    
+                params.push({ type: 'any', name: param.value });
+            } while (
+                this.peek().type === TokenType.COMMA &&
+                this.consume()
+            ); // do while is finally useful yay
+        }
+    
+        this.consume(); // RPAREN
+        this.consume(); // LBRACE
+    
+        const body: Statement[] = [];
+    
+        while (this.peek().type !== TokenType.RBRACE) {
+            body.push(this.parseStatement());
+        }
+    
+        this.consume(); // RBRACE
+    
+        return {
+            type: "FunctionDeclaration",
+            name: nameToken.value,
+            params,
+            body,
+        };
+    }
+
+    private parseReturn(): ReturnStatement {
+        this.consume(); // RETURN_KEYWORD
+    
+        if (this.peek().type === TokenType.SEMICOLON) {
+            this.consume();
+            return {
+                type: "ReturnStatement",
+                argument: null,
+            };
+        }
+    
+        const argument = this.parseExpression(0);
+    
+        if (this.peek().type === TokenType.SEMICOLON) {
+            this.consume();
+        }
+    
+        return {
+            type: "ReturnStatement",
+            argument,
+        };
+    }
+
+    private parseExpression(minBP: number): Expression {
         const token = this.consume();
         let left = this.nud(token);
 
@@ -55,7 +160,7 @@ export class Parser {
         return left;
     }
 
-    private nud(token: Token): ASTNode {
+    private nud(token: Token): Expression {
         switch (token.type) {
         case TokenType.NUMBER:
             return {
@@ -83,7 +188,7 @@ export class Parser {
         }
     }
 
-    private led(token: Token, left: ASTNode, bp: BindingPower): ASTNode {
+    private led(token: Token, left: ASTNode, bp: BindingPower): Expression {
         const right = this.parseExpression(bp.right);
 
         return {
