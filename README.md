@@ -17,5 +17,3 @@ If you want to pass the file instead of random testing code, pass it as fifth ar
 **Roadmap**
 
 I decided to place it [here](docs/ROADMAP.md).
-
-That's for now lmao.

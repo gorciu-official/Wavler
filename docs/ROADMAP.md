@@ -10,3 +10,5 @@
 8. [X] Mathematics expression AST parsing
 9. [ ] Base support for parsing and lexerring `function main() { return 49; }`
 10. [X] Semicolon as statement terminator.
+
+That's for now lmao.
