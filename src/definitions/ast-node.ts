@@ -40,10 +40,14 @@ export type Statement =
     | ExpressionStatement
     | { type: "EmptyStatement" };
 
+export type TypeNode =
+    | { kind: "SimpleType"; name: string }
+    | { kind: "UnionType"; types: TypeNode[] };
+
 export interface FunctionDeclaration {
     type: "FunctionDeclaration";
     name: string;
-    params: { type: 'any', name: string }[];
+    params: {name: string, type: TypeNode}[];
     body: Statement[];
 }
 

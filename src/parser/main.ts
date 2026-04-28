@@ -1,4 +1,4 @@
-import { ASTNode, BinaryOperator, Expression, ExpressionStatement, FunctionDeclaration, ReturnStatement, Statement } from "../definitions/ast-node.ts";
+import { ASTNode, BinaryOperator, Expression, ExpressionStatement, FunctionDeclaration, ReturnStatement, Statement, TypeNode } from "../definitions/ast-node.ts";
 import Token, { TokenType } from "../definitions/token.ts";
 import { error, ErrorCode } from "../logging.ts";
 
@@ -32,6 +32,42 @@ export class Parser {
         }
 
         return body;
+    }
+
+    private parseType(): TypeNode {
+        return this.parseUnionType();
+    }
+
+    private parseUnionType(): TypeNode {
+        const left = this.parsePrimaryType();
+    
+        const types: TypeNode[] = [left];
+    
+        while (this.peek().type === TokenType.PIPE) {
+            this.consume(); // |
+    
+            types.push(this.parsePrimaryType());
+        }
+    
+        return types.length === 1
+            ? left
+            : { kind: "UnionType", types };
+    }
+
+    private parsePrimaryType(): TypeNode {
+        const token = this.consume();
+    
+        if (token.type !== TokenType.IDENTIFIER) {
+            return error({
+                code: ErrorCode.EXPECTED_IDENTIFIER,
+                reason: "Expected type name",
+            });
+        }
+    
+        return {
+            kind: "SimpleType",
+            name: token.value,
+        };
     }
 
     private parseStatement(): Statement {
@@ -82,24 +118,38 @@ export class Parser {
     
         this.consume(); // LPAREN
     
-        const params: { type: 'any', name: string }[] = [];
+        const params: { name: string, type: TypeNode }[] = [];
     
         if (this.peek().type !== TokenType.RPAREN) {
             do {
-                const param = this.consume();
-                if (param.type !== TokenType.IDENTIFIER) {
+                const nameToken = this.consume();
+                if (nameToken.type !== TokenType.IDENTIFIER) {
                     return error({
                         code: ErrorCode.EXPECTED_IDENTIFIER,
-                        reason: "Expected identifier"
-                    }); 
+                        reason: "Expected parameter name",
+                    });
                 }
-    
-                params.push({ type: 'any', name: param.value });
+        
+                if (this.peek().type !== TokenType.COLON) {
+                    return error({
+                        code: ErrorCode.EXPECTED_IDENTIFIER,
+                        reason: "Expected ':' after parameter name",
+                    });
+                }
+        
+                this.consume(); // :
+        
+                const type = this.parseType();
+        
+                params.push({
+                    type, name: nameToken.value
+                });
+        
             } while (
                 this.peek().type === TokenType.COMMA &&
                 this.consume()
-            ); // do while is finally useful yay
-        }
+            );
+        } 
     
         this.consume(); // RPAREN
         this.consume(); // LBRACE

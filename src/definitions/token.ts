@@ -2,7 +2,8 @@ export enum TokenType {
     LBRACE, RBRACE,
     LPAREN, RPAREN, 
 
-    COMMA, SEMICOLON,
+    COMMA, SEMICOLON, 
+    COLON, PIPE,
 
     ASSIGN_SIGN,
 

@@ -13,6 +13,9 @@
 11. [ ] Lexing and parsing constant assigments.
 12. [ ] Same as previous point, but variables (`let`)
 13. [ ] Parser and lexer support for ternary operator 
-14. [ ] If expressions lexer and parser support 
+14. [ ] If expressions lexer and parser support
+15. [ ] Support for explicit return types in functions
+16. [X] Support for explicit parameter types in functions 
+17. [ ] Support for explicit variable types
 
 That's for now lmao.

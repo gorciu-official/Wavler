@@ -156,6 +156,12 @@ export class Lexer {
             case ';':
                 this.pushSingle({ type: TokenType.SEMICOLON, value: ";" });
                 break;
+            case ':':
+                this.pushSingle({ type: TokenType.COLON, value: ":" });
+                break;
+            case '|':
+                this.pushSingle({ type: TokenType.PIPE, value: "|" });
+                break;
 
             case '=':
                 this.pushSingle({ type: TokenType.ASSIGN_SIGN, value: "=" });
