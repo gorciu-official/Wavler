@@ -9,7 +9,10 @@ export enum TokenType {
     SWITCH_KEYWORD, CASE_KEYWORD,
 
     PLUS_SIGN, MINUS_SIGN, 
-    STAR_SIGN, SLASH_SIGN
+    STAR_SIGN, SLASH_SIGN,
+
+    LESS_THAN, GREATER_THAN,
+    BITSHIFT_LEFT, BITSHIFT_RIGHT
 }
 
 type NonSpecialTokenType = Exclude<

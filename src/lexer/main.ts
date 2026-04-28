@@ -65,13 +65,19 @@ export class Lexer {
             });
         }
 
-        for (const char of line) {
+        let i = 0;
+
+        while (i < line.length) {
+            const char = line[i];
+
             if (char == '"' && this.current_token?.type == TokenType.STRING) {
                 this.applyCurrent();
+                i++;
                 continue;
             } else if (char == '"') {
                 this.applyCurrent();
                 this.current_token = { type: TokenType.STRING, value: "" };
+                i++;
                 continue;
             } else if (this.current_token?.type == TokenType.STRING) {
                 const escape_map: Record<string, string> = {
@@ -96,6 +102,7 @@ export class Lexer {
                     this.current_token.value += char;
                 }
 
+                i++;
                 continue;
             }
 
@@ -132,13 +139,34 @@ export class Lexer {
                 this.pushSingle({ type: TokenType.SLASH_SIGN, value: "/" });
                 break;
 
+            case '>': {
+                if (line[i + 1] == '>') {
+                    i++;
+                    this.pushSingle({ type: TokenType.BITSHIFT_RIGHT, value: ">>" });
+                } else {
+                    this.pushSingle({ type: TokenType.GREATER_THAN, value: ">" });
+                }
+                break;
+            }
+            case '<': {
+                if (line[i + 1] == '<') {
+                    i++;
+                    this.pushSingle({ type: TokenType.BITSHIFT_LEFT, value: "<<" });
+                } else {
+                    this.pushSingle({ type: TokenType.LESS_THAN, value: "<" });
+                }
+                break;
+            }
+
             default: {
                 if (this.current_token?.type !== TokenType.IDENTIFIER) {
                     this.applyCurrent();
                     this.current_token = { type: TokenType.IDENTIFIER, value: char };
                 } else this.current_token.value += char;
             }
-            } 
+            }
+
+            i++;
         }
 
         }
