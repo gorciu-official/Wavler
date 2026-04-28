@@ -1,4 +1,4 @@
-import { ASTNode, BinaryOperator, Expression, ExpressionStatement, FunctionDeclaration, ReturnStatement, Statement, TypeNode } from "../definitions/ast-node.ts";
+import { ASTNode, BinaryOperator, Expression, ExpressionStatement, FunctionDeclaration, ReturnStatement, Statement, TypeNode, VariableDeclaration } from "../definitions/ast-node.ts";
 import Token, { TokenType } from "../definitions/token.ts";
 import { error, ErrorCode } from "../logging.ts";
 
@@ -28,7 +28,7 @@ export class Parser {
         const body: Statement[] = [];
 
         while (!this.isAtEnd()) {
-            body.push(this.parseStatement());
+            body.push(this.parseStatement()); 
         }
 
         return body;
@@ -87,6 +87,10 @@ export class Parser {
             case TokenType.RETURN_KEYWORD:
                 return this.parseReturn();
 
+            case TokenType.LET_KEYWORD:
+            case TokenType.CONST_KEYWORD: 
+                return this.parseVarDeclaration();
+
             default:
                 return this.parseExpressionStatement();
         }
@@ -102,6 +106,50 @@ export class Parser {
         return {
             type: "ExpressionStatement",
             expression: expr,
+        };
+    }
+
+    private parseVarDeclaration(): VariableDeclaration {
+        const is_const = this.peek().type == TokenType.CONST_KEYWORD;
+
+        this.consume(); // LET_KEYWORD | CONST_KEYWORD
+    
+        const nameToken = this.consume();
+        if (nameToken.type !== TokenType.IDENTIFIER) {
+            return error({
+                code: ErrorCode.EXPECTED_IDENTIFIER,
+                reason: "Expected variable name",
+            });
+        }
+    
+        let varType: TypeNode | null = null;
+
+        if (this.peek().type !== TokenType.COLON) {
+            return error({
+                code: ErrorCode.EXPECTED_IDENTIFIER,
+                reason: "Expected ':' after parameter name",
+            });
+        }
+        this.consume(); // : 
+        varType = this.parseType(); 
+    
+        if (this.peek().type !== TokenType.ASSIGN_SIGN) {
+            return error({
+                code: ErrorCode.EXPECTED_EXPRESSION,
+                reason: "Expected '=' after variable declaration",
+            });
+        }
+    
+        this.consume(); // =
+    
+        const value = this.parseExpression(0);
+    
+        return {
+            type: "VariableDeclaration",
+            variable: {
+                const: is_const, type: varType,
+                value, name: nameToken.value 
+            } 
         };
     }
 

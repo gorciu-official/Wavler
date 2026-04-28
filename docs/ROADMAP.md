@@ -10,8 +10,8 @@
 8. [X] Mathematics expression AST parsing
 9. [X] Base support for parsing and lexing `function main() { return 49; }`
 10. [X] Semicolon as statement terminator.
-11. [ ] Lexing and parsing constant assigments.
-12. [ ] Same as previous point, but variables (`let`)
+11. [X] Lexing and parsing constant assigments.
+12. [X] Same as previous point, but variables (`let`)
 13. [ ] Parser and lexer support for ternary operator 
 14. [ ] If expressions lexer and parser support
 15. [ ] Support for explicit return types in functions

@@ -38,6 +38,7 @@ export type Statement =
     | FunctionDeclaration
     | ReturnStatement
     | ExpressionStatement
+    | VariableDeclaration
     | { type: "EmptyStatement" };
 
 export type TypeNode =
@@ -49,6 +50,14 @@ export interface FunctionDeclaration {
     name: string;
     params: {name: string, type: TypeNode}[];
     body: Statement[];
+}
+
+export interface VariableDeclaration {
+    type: "VariableDeclaration";
+    variable: {
+        name: string; type: TypeNode;
+        const: boolean; value: Expression;
+    }
 }
 
 export interface ReturnStatement {
