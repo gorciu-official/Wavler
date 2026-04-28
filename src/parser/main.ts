@@ -2,104 +2,60 @@ import { ASTNode, BinaryOperator } from "../definitions/ast-node.ts";
 import Token, { TokenType } from "../definitions/token.ts";
 import { error, ErrorCode } from "../logging.ts";
 
+interface BindingPower {
+    left: number;
+    right: number;
+}
+
 export class Parser {
     private pos = 0;
 
     constructor(private tokens: Token[]) {}
 
-    private peek(): Token | null {
-        return this.tokens[this.pos] ?? null;
+    private peek(): Token {
+        return this.tokens[this.pos];
     }
 
     private consume(): Token {
         return this.tokens[this.pos++];
     }
 
-    private match(...types: TokenType[]): boolean {
-        const token = this.peek();
-        if (!token) return false;
-        return types.includes(token.type);
+    private isAtEnd(): boolean {
+        return this.pos >= this.tokens.length;
     }
 
-    parse(): ASTNode {
-        return this.parseBitshift();
+    parse(): ASTNode[] {
+        const body: ASTNode[] = [];
+
+        while (!this.isAtEnd()) {
+            body.push(this.parseExpression(0));
+    
+            if (this.peek()?.type === TokenType.SEMICOLON) {
+                this.consume();
+            }
+        }    
+
+        return body;
     }
 
-    private parseBitshift(): ASTNode {
-        let left = this.parseComparison();
-
-        while (this.match(TokenType.BITSHIFT_LEFT, TokenType.BITSHIFT_RIGHT)) {
-            const operator = this.consume().value;
-            const right = this.parseComparison();
-
-            left = {
-                type: "BinaryExpression",
-                operator: operator as BinaryOperator,
-                left,
-                right,
-            };
-        }
-
-        return left;
-    }
-
-    private parseComparison(): ASTNode {
-        let left = this.parseAdditive();
-
-        while (this.match(TokenType.LESS_THAN, TokenType.GREATER_THAN)) {
-            const operator = this.consume().value;
-            const right = this.parseAdditive();
-
-            left = {
-                type: "BinaryExpression",
-                operator: operator as BinaryOperator,
-                left,
-                right,
-            };
-        }
-
-        return left;
-    }
-
-    private parseAdditive(): ASTNode {
-        let left = this.parseMultiplicative();
-
-        while (this.match(TokenType.PLUS_SIGN, TokenType.MINUS_SIGN)) {
-            const operator = this.consume().value;
-            const right = this.parseMultiplicative();
-
-            left = {
-                type: "BinaryExpression",
-                operator: operator as BinaryOperator,
-                left,
-                right,
-            };
-        }
-
-        return left;
-    }
-
-    private parseMultiplicative(): ASTNode {
-        let left = this.parsePrimary();
-
-        while (this.match(TokenType.STAR_SIGN, TokenType.SLASH_SIGN)) {
-            const operator = this.consume().value;
-            const right = this.parsePrimary();
-
-            left = {
-                type: "BinaryExpression",
-                operator: operator as BinaryOperator,
-                left,
-                right,
-            };
-        }
-
-        return left;
-    }
-
-    private parsePrimary(): ASTNode {
+    private parseExpression(minBP: number): ASTNode {
         const token = this.consume();
+        let left = this.nud(token);
 
+        while (!this.isAtEnd()) {
+            const next = this.peek();
+            const bp = this.getBindingPower(next);
+
+            if (!bp || bp.left < minBP) break;
+
+            this.consume();
+            left = this.led(next, left, bp);
+        }
+
+        return left;
+    }
+
+    private nud(token: Token): ASTNode {
         switch (token.type) {
         case TokenType.NUMBER:
             return {
@@ -114,7 +70,7 @@ export class Parser {
             };
 
         case TokenType.LPAREN: {
-            const expr = this.parse();
+            const expr = this.parseExpression(0);
             this.consume(); // RPAREN
             return expr;
         }
@@ -124,6 +80,40 @@ export class Parser {
                 code: ErrorCode.EXPECTED_IDENTIFIER,
                 reason: "Expected identifier"
             }); 
+        }
+    }
+
+    private led(token: Token, left: ASTNode, bp: BindingPower): ASTNode {
+        const right = this.parseExpression(bp.right);
+
+        return {
+            type: "BinaryExpression",
+            operator: token.value as BinaryOperator,
+            left,
+            right,
+        };
+    }
+
+    private getBindingPower(token: Token): BindingPower | null {
+        switch (token.type) {
+        case TokenType.STAR_SIGN:
+        case TokenType.SLASH_SIGN:
+            return { left: 50, right: 51 };
+
+        case TokenType.PLUS_SIGN:
+        case TokenType.MINUS_SIGN:
+            return { left: 40, right: 41 };
+
+        case TokenType.LESS_THAN:
+        case TokenType.GREATER_THAN:
+            return { left: 30, right: 31 };
+
+        case TokenType.BITSHIFT_LEFT:
+        case TokenType.BITSHIFT_RIGHT:
+            return { left: 20, right: 21 };
+
+        default:
+            return null;
         }
     }
 }

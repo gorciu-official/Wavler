@@ -139,6 +139,17 @@ export class Lexer {
                 this.pushSingle({ type: TokenType.SLASH_SIGN, value: "/" });
                 break;
 
+            case ',':
+                this.pushSingle({ type: TokenType.COMMA, value: "," });
+                break;
+            case ';':
+                this.pushSingle({ type: TokenType.SEMICOLON, value: ";" });
+                break;
+
+            case '=':
+                this.pushSingle({ type: TokenType.ASSIGN_SIGN, value: "=" });
+                break;
+
             case '>': {
                 if (line[i + 1] == '>') {
                     i++;
