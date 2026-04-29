@@ -13,7 +13,8 @@ export class Lexer {
             "if": TokenType.IF_KEYWORD, "else": TokenType.ELSE_KEYWORD,
             "switch": TokenType.SWITCH_KEYWORD, "case": TokenType.CASE_KEYWORD,
             "function": TokenType.FUNCTION_KEYWORD, "return": TokenType.RETURN_KEYWORD,
-            "let": TokenType.LET_KEYWORD, "const": TokenType.CONST_KEYWORD
+            "let": TokenType.LET_KEYWORD, "const": TokenType.CONST_KEYWORD,
+            "for": TokenType.FOR_KEYWORD, "while": TokenType.WHILE_KEYWORD
         };
 
         const value = ident.value;
