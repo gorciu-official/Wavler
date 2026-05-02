@@ -15,6 +15,7 @@ export enum TokenType {
     RETURN_KEYWORD, FUNCTION_KEYWORD,
     LET_KEYWORD, CONST_KEYWORD,
     FOR_KEYWORD, WHILE_KEYWORD,
+    OF_KEYWORD,
 
     PLUS_SIGN, MINUS_SIGN, 
     STAR_SIGN, SLASH_SIGN,
@@ -31,6 +32,7 @@ type NonSpecialTokenType = Exclude<
 export interface BaseToken<T extends TokenType, V> {
     type: T;
     value: V;
+    line?: string;
 }
 
 export type NumberToken = BaseToken<TokenType.NUMBER, number>;

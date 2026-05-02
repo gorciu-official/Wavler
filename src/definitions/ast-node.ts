@@ -39,6 +39,9 @@ export type Statement =
     | ReturnStatement
     | ExpressionStatement
     | VariableDeclaration
+    | WhileStatement
+    | ForStatement
+    | ForOfStatement
     | { type: "EmptyStatement" };
 
 export type TypeNode =
@@ -58,6 +61,30 @@ export interface VariableDeclaration {
         name: string; type: TypeNode;
         const: boolean; value: Expression;
     }
+}
+
+export interface WhileStatement {
+    type: "WhileStatement",
+    condition: Expression,
+    body: Statement[]
+}
+
+export interface ForStatement {
+    type: "ForStatement";
+    init: Statement | null;
+    condition: Expression | null;
+    update: Expression | null;
+    body: Statement[];
+}
+
+export interface ForOfStatement {
+    type: "ForOfStatement";
+    iterator: {
+        name: string;
+        const: boolean;
+    };
+    iterable: Expression;
+    body: Statement[];
 }
 
 export interface ReturnStatement {

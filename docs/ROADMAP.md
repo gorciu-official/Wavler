@@ -17,7 +17,7 @@
 15. [ ] Support for explicit return types in functions
 16. [X] Support for explicit parameter types in functions 
 17. [X] Support for explicit variable types
-18. [ ] For and while loops
+18. [X] For and while loops
 18. [ ] Implement more complex type parsing (supporting parens inside, generics etc)
 
 That's for now lmao.

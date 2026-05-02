@@ -14,7 +14,8 @@ export class Lexer {
             "switch": TokenType.SWITCH_KEYWORD, "case": TokenType.CASE_KEYWORD,
             "function": TokenType.FUNCTION_KEYWORD, "return": TokenType.RETURN_KEYWORD,
             "let": TokenType.LET_KEYWORD, "const": TokenType.CONST_KEYWORD,
-            "for": TokenType.FOR_KEYWORD, "while": TokenType.WHILE_KEYWORD
+            "for": TokenType.FOR_KEYWORD, "while": TokenType.WHILE_KEYWORD,
+            "of": TokenType.OF_KEYWORD
         };
 
         const value = ident.value;
@@ -127,63 +128,63 @@ export class Lexer {
                 break;
 
             case '}':
-                this.pushSingle({ type: TokenType.RBRACE, value: "}" });
+                this.pushSingle({ type: TokenType.RBRACE, value: "}", line });
                 break;
             case '{':
-                this.pushSingle({ type: TokenType.LBRACE, value: "{" });
+                this.pushSingle({ type: TokenType.LBRACE, value: "{", line });
                 break;
             case '(':
-                this.pushSingle({ type: TokenType.LPAREN, value: "(" });
+                this.pushSingle({ type: TokenType.LPAREN, value: "(", line });
                 break;
             case ')':
-                this.pushSingle({ type: TokenType.RPAREN, value: ")" });
+                this.pushSingle({ type: TokenType.RPAREN, value: ")", line });
                 break;
 
             case '+':
-                this.pushSingle({ type: TokenType.PLUS_SIGN, value: "+" });
+                this.pushSingle({ type: TokenType.PLUS_SIGN, value: "+", line });
                 break;
             case '-':
-                this.pushSingle({ type: TokenType.MINUS_SIGN, value: "-" });
+                this.pushSingle({ type: TokenType.MINUS_SIGN, value: "-", line });
                 break;
             case '*':
-                this.pushSingle({ type: TokenType.STAR_SIGN, value: "*" });
+                this.pushSingle({ type: TokenType.STAR_SIGN, value: "*", line });
                 break;
             case '/':
-                this.pushSingle({ type: TokenType.SLASH_SIGN, value: "/" });
+                this.pushSingle({ type: TokenType.SLASH_SIGN, value: "/", line });
                 break;
 
             case ',':
-                this.pushSingle({ type: TokenType.COMMA, value: "," });
+                this.pushSingle({ type: TokenType.COMMA, value: ",", line });
                 break;
             case ';':
-                this.pushSingle({ type: TokenType.SEMICOLON, value: ";" });
+                this.pushSingle({ type: TokenType.SEMICOLON, value: ";", line });
                 break;
             case ':':
-                this.pushSingle({ type: TokenType.COLON, value: ":" });
+                this.pushSingle({ type: TokenType.COLON, value: ":", line });
                 break;
             case '|':
-                this.pushSingle({ type: TokenType.PIPE, value: "|" });
+                this.pushSingle({ type: TokenType.PIPE, value: "|", line });
                 break;
 
             case '=':
-                this.pushSingle({ type: TokenType.ASSIGN_SIGN, value: "=" });
+                this.pushSingle({ type: TokenType.ASSIGN_SIGN, value: "=", line });
                 break;
 
             case '>': {
                 if (line[i + 1] == '>') {
                     i++;
-                    this.pushSingle({ type: TokenType.BITSHIFT_RIGHT, value: ">>" });
+                    this.pushSingle({ type: TokenType.BITSHIFT_RIGHT, value: ">>", line });
                 } else {
-                    this.pushSingle({ type: TokenType.GREATER_THAN, value: ">" });
+                    this.pushSingle({ type: TokenType.GREATER_THAN, value: ">", line });
                 }
                 break;
             }
             case '<': {
                 if (line[i + 1] == '<') {
                     i++;
-                    this.pushSingle({ type: TokenType.BITSHIFT_LEFT, value: "<<" });
+                    this.pushSingle({ type: TokenType.BITSHIFT_LEFT, value: "<<", line });
                 } else {
-                    this.pushSingle({ type: TokenType.LESS_THAN, value: "<" });
+                    this.pushSingle({ type: TokenType.LESS_THAN, value: "<", line });
                 }
                 break;
             }
@@ -191,7 +192,7 @@ export class Lexer {
             default: {
                 if (this.current_token?.type !== TokenType.IDENTIFIER) {
                     this.applyCurrent();
-                    this.current_token = { type: TokenType.IDENTIFIER, value: char };
+                    this.current_token = { type: TokenType.IDENTIFIER, value: char, line };
                 } else this.current_token.value += char;
             }
             }
