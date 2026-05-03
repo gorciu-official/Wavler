@@ -65,7 +65,7 @@ export class SemanticAnalyzer {
     }
 
     visitStatement(stmt: Statement) {
-        if (![ "EmptyStatement", "FunctionDeclaration" ].includes(stmt.type))
+        if (![ "EmptyStatement", "FunctionDeclaration" ].includes(stmt.type) && !this.insideFunction)
             error({
                 code: ErrorCode.STATEMENT_ILLEGAL_OUTSIDE_A_FUNCTION,
                 reason: `Statement type "${stmt.type}" cannot be used outside a function`
