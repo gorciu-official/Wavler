@@ -2,12 +2,26 @@ import type { Expression, ForOfStatement, ForStatement, FunctionDeclaration, Ret
 import type { Symbol } from "../definitions/symbol.ts";
 import { error, ErrorCode } from "../logging.ts";
 
+const allowed_types: string[] = [
+    'i64', 'i32', 'i16', 'i8',
+    'u64', 'u32', 'u16', 'u8',
+    'string', 'void', 'f64', 'f32'
+];
+const typescript_types: string[] = [
+    'number', 'object'
+];
+
 class Scope {
     private symbols = new Map<string, Symbol>();
 
     constructor(public parent: Scope | null = null) {}
 
     declare(sym: Symbol) {
+        if (allowed_types.includes(sym.name)) 
+            error({
+                code: ErrorCode.ILLEGAL_IDENTIFIER,
+                reason: `Symbol name ${sym.name} cannot be a symbol because it refers to a type.`
+            });
         this.symbols.set(sym.name, sym);
     }
 
@@ -51,6 +65,12 @@ export class SemanticAnalyzer {
     }
 
     visitStatement(stmt: Statement) {
+        if (![ "EmptyStatement", "FunctionDeclaration" ].includes(stmt.type))
+            error({
+                code: ErrorCode.STATEMENT_ILLEGAL_OUTSIDE_A_FUNCTION,
+                reason: `Statement type "${stmt.type}" cannot be used outside a function`
+            });
+
         switch (stmt.type) {
             case "FunctionDeclaration":
                 return this.visitFunction(stmt);
@@ -154,16 +174,7 @@ export class SemanticAnalyzer {
             return;
         }
 
-        // SimpleType 
-        const allowed_types: string[] = [
-            'i64', 'i32', 'i16', 'i8',
-            'u64', 'u32', 'u16', 'u8',
-            'string', 'void', 'f64', 'f32'
-        ];
-        const typescript_types: string[] = [
-            'number', 'object'
-        ];
-
+        // SimpleType
         if (!allowed_types.includes(tp.name)) 
             error({
                 code: ErrorCode.UNKNOWN_TYPE,

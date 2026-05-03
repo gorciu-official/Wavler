@@ -22,5 +22,6 @@
 19. [X] Base semantic analyzer
 20. [ ] Assigment expressions
 21. [X] Base codegen
+22. [ ] Call expressions
 
 That's for now lmao.
