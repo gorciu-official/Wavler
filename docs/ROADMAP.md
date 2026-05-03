@@ -19,5 +19,6 @@
 17. [X] Support for explicit variable types
 18. [X] For and while loops
 18. [ ] Implement more complex type parsing (supporting parens inside, generics etc)
+19. [X] Base semantic analyzer
 
 That's for now lmao.

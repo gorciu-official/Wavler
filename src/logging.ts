@@ -1,9 +1,12 @@
 import process from "node:process";
 
 export enum ErrorCode {
+    // --- lexer
     MULTILINE_NON_TEMPLATE_STRING,
     UNTERMINATED_STRING_LITERAL,
     NUMBER_UNSUPPORTED_CHARACTER,
+
+    // --- parser
     EXPECTED_IDENTIFIER,
     EXPECTED_EXPRESSION,
     UNEXPECTED_TOKEN,
@@ -18,7 +21,15 @@ export enum ErrorCode {
     EXPECTED_BRACE_CLOSE,
     EXPECTED_KEYWORD,
     INVALID_FOR_SYNTAX,
-    INVALID_FOR_OF_SYNTAX
+    INVALID_FOR_OF_SYNTAX,
+
+    // --- semantic analyzer
+    UNKNOWN_TYPE,
+    ILLEGAL_RETURN_STATEMENT,
+    ALREADY_EXISTS,
+    UNDEFINED_VARIABLE,
+    TYPE_MISMATCH,
+    ILLEGAL_FUNCTION_STATEMENT
 };
 
 export enum WarnCode {
@@ -28,10 +39,12 @@ export enum WarnCode {
 export function error(opts: {
     code: ErrorCode,
     reason: string,
-    line?: string
+    line?: string,
+    help?: string
 }): never {
     console.log(`\x1b[31mERR<e${opts.code}>\x1b[0m: ${opts.reason}`);
     if (opts.line) console.log(opts.line);
+    if (opts.help) console.log(`└ \x1b[36mhelp\x1b[0m: ${opts.help}`);
     process.exit(1);
 }
 

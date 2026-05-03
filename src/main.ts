@@ -1,6 +1,7 @@
 import process from "node:process";
 import { Lexer } from "./lexer/main.ts";
 import { Parser } from "./parser/main.ts";
+import { SemanticAnalyzer } from "./semantic-analyzer/main.ts";
 
 function verboseOutput(obj: object) {
     const str = JSON.stringify(obj, null, 4);
@@ -18,7 +19,11 @@ function main() {
     verboseOutput(lexer_result); 
 
     const parser = new Parser(lexer_result);
-    verboseOutput(parser.parse());
+    const parser_output = parser.parse();
+    verboseOutput(parser_output);
+
+    const semantic_analyzer = new SemanticAnalyzer();
+    semantic_analyzer.analyze(parser_output);
 }
 
 main();

@@ -261,11 +261,8 @@ export class Parser {
             "Expected variable name"
         ) as BaseToken<TokenType.IDENTIFIER, string>;
 
-        let varType: TypeNode | null = null;
-
-        if (this.match(TokenType.COLON)) {
-            varType = this.parseType();
-        }
+        this.expect(TokenType.COLON, "Expected : after variable name"); 
+        const varType = this.parseType(); 
 
         this.expect(TokenType.ASSIGN_SIGN, "Expected '=' in variable declaration");
 
