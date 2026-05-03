@@ -308,6 +308,12 @@ export class Parser {
 
         this.expect(TokenType.RPAREN, "Expected ')' after params");
 
+        let returnType: TypeNode = { kind: "SimpleType", name: 'void' };
+        if (this.peek().type == TokenType.COLON) {
+            this.advance(); // COLON 
+            returnType = this.parseType();
+        }
+
         this.expect(TokenType.LBRACE, "Expected '{' before function body");
 
         const body: Statement[] = [];
@@ -322,7 +328,7 @@ export class Parser {
             type: "FunctionDeclaration",
             name: name.value,
             params,
-            body,
+            body, returnType
         };
     }
 

@@ -14,11 +14,12 @@
 12. [X] Same as previous point, but variables (`let`)
 13. [ ] Parser and lexer support for ternary operator 
 14. [ ] If expressions lexer and parser support
-15. [ ] Support for explicit return types in functions
+15. [X] Support for explicit return types in functions
 16. [X] Support for explicit parameter types in functions 
 17. [X] Support for explicit variable types
 18. [X] For and while loops
 18. [ ] Implement more complex type parsing (supporting parens inside, generics etc)
 19. [X] Base semantic analyzer
+20. [ ] Assigment expressions
 
 That's for now lmao.

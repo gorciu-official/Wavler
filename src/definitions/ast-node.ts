@@ -52,7 +52,7 @@ export interface FunctionDeclaration {
     type: "FunctionDeclaration";
     name: string;
     params: {name: string, type: TypeNode}[];
-    body: Statement[];
+    body: Statement[]; returnType: TypeNode
 }
 
 export interface VariableDeclaration {

@@ -158,7 +158,7 @@ export class SemanticAnalyzer {
         const allowed_types: string[] = [
             'i64', 'i32', 'i16', 'i8',
             'u64', 'u32', 'u16', 'u8',
-            'string'
+            'string', 'void'
         ];
         const typescript_types: string[] = [
             'number', 'object'
@@ -238,6 +238,8 @@ export class SemanticAnalyzer {
     }
 
     visitFunction(fn: FunctionDeclaration) {
+        this.validateType(fn.returnType);
+
         if (this.current.resolve(fn.name)) {
             error({
                 code: ErrorCode.ALREADY_EXISTS,
