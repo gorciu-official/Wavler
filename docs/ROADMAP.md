@@ -21,5 +21,6 @@
 18. [ ] Implement more complex type parsing (supporting parens inside, generics etc)
 19. [X] Base semantic analyzer
 20. [ ] Assigment expressions
+21. [X] Base codegen
 
 That's for now lmao.

@@ -44,8 +44,10 @@ export type Statement =
     | ForOfStatement
     | { type: "EmptyStatement" };
 
+export type SimpleTypeNode = { kind: "SimpleType"; name: string };
+
 export type TypeNode =
-    | { kind: "SimpleType"; name: string }
+    | SimpleTypeNode
     | { kind: "UnionType"; types: TypeNode[] };
 
 export interface FunctionDeclaration {

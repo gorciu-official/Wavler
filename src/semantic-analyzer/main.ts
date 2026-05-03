@@ -158,7 +158,7 @@ export class SemanticAnalyzer {
         const allowed_types: string[] = [
             'i64', 'i32', 'i16', 'i8',
             'u64', 'u32', 'u16', 'u8',
-            'string', 'void'
+            'string', 'void', 'f64', 'f32'
         ];
         const typescript_types: string[] = [
             'number', 'object'

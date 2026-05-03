@@ -29,11 +29,13 @@ export enum ErrorCode {
     ALREADY_EXISTS,
     UNDEFINED_VARIABLE,
     TYPE_MISMATCH,
-    ILLEGAL_FUNCTION_STATEMENT
+    ILLEGAL_FUNCTION_STATEMENT,
+    ILLEGAL_RETURN_TYPE
 };
 
 export enum WarnCode {
-    CHARACTER_ESCAPING_NOT_USED
+    CHARACTER_ESCAPING_NOT_USED,
+    STATEMENT_NOT_IMPLEMENTED
 };
 
 export function error(opts: {
@@ -42,7 +44,7 @@ export function error(opts: {
     line?: string,
     help?: string
 }): never {
-    console.log(`\x1b[31mERR<e${opts.code}>\x1b[0m: ${opts.reason}`);
+    console.log(`\x1b[31mERR<e${opts.code + 1}>\x1b[0m: ${opts.reason}`);
     if (opts.line) console.log(opts.line);
     if (opts.help) console.log(`└ \x1b[36mhelp\x1b[0m: ${opts.help}`);
     process.exit(1);
@@ -53,6 +55,6 @@ export function warn(opts: {
     reason: string,
     line?: string
 }) {
-    console.log(`\x1b[33mWARN<w${opts.code}>\x1b[0m: ${opts.reason}`);
+    console.log(`\x1b[33mWARN<w${opts.code + 1}>\x1b[0m: ${opts.reason}`);
     if (opts.line) console.log(opts.line);
 }
