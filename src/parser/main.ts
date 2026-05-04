@@ -20,6 +20,7 @@ interface BindingPower {
 
 export class Parser {
     private pos = 0;
+    private type_aliases: { name: string, base_type: string }[] = [];
 
     constructor(private tokens: Token[]) {}
 
@@ -45,7 +46,7 @@ export class Parser {
         if (token.type !== type) {
             return error({
                 code: ErrorCode.UNEXPECTED_TOKEN,
-                reason: msg,
+                reason: msg + ` (got ${token.type})`,
                 line: token.line
             });
         }
@@ -91,6 +92,10 @@ export class Parser {
 
             case TokenType.FOR_KEYWORD:
                 return this.parseFor();
+
+            case TokenType.TYPE_KEYWORD:
+                this.type_aliases.push(this.parseTypeAliases());
+                return { type: "EmptyStatement" };
 
             default:
                 return this.parseExpressionStatement();
@@ -381,9 +386,26 @@ export class Parser {
             "Expected type identifier"
         ) as BaseToken<TokenType.IDENTIFIER, string>;
 
+        const type_alias = this.type_aliases.find(i => i.name == token.value)
+        if (type_alias)
+            return {
+                kind: "SimpleType",
+                name: type_alias.base_type
+            }
+
         return {
             kind: "SimpleType",
             name: token.value,
+        };
+    }
+
+    private parseTypeAliases() {
+        this.advance();
+        const name = (this.expect(TokenType.IDENTIFIER, "Expected type alias name") as BaseToken<TokenType.IDENTIFIER, string>).value;
+        this.expect(TokenType.ASSIGN_SIGN, "Expected = after type alias name");
+        const base_type = (this.expect(TokenType.IDENTIFIER, "Expected type name") as BaseToken<TokenType.IDENTIFIER, string>).value;
+        return {
+            name, base_type
         };
     }
 

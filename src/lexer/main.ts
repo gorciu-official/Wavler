@@ -15,7 +15,7 @@ export class Lexer {
             "function": TokenType.FUNCTION_KEYWORD, "return": TokenType.RETURN_KEYWORD,
             "let": TokenType.LET_KEYWORD, "const": TokenType.CONST_KEYWORD,
             "for": TokenType.FOR_KEYWORD, "while": TokenType.WHILE_KEYWORD,
-            "of": TokenType.OF_KEYWORD
+            "of": TokenType.OF_KEYWORD, "type": TokenType.TYPE_KEYWORD
         };
 
         const value = ident.value;
