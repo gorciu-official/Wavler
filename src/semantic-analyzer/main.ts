@@ -64,7 +64,7 @@ export class SemanticAnalyzer {
         }
     }
 
-    visitStatement(stmt: Statement) {
+    visitStatement(stmt: Statement): boolean {
         if (![ "EmptyStatement", "FunctionDeclaration" ].includes(stmt.type) && !this.insideFunction)
             error({
                 code: ErrorCode.STATEMENT_ILLEGAL_OUTSIDE_A_FUNCTION,
@@ -79,7 +79,8 @@ export class SemanticAnalyzer {
                 return this.visitVar(stmt);
 
             case "ExpressionStatement":
-                return this.visitExpression(stmt.expression);
+                this.visitExpression(stmt.expression);
+                return false;
 
             case "ReturnStatement":
                 return this.visitReturn(stmt);
@@ -94,7 +95,7 @@ export class SemanticAnalyzer {
                 return this.visitForOf(stmt);
 
             case "EmptyStatement":
-                return;
+                return false;
 
             default:
                 throw new Error(
@@ -103,7 +104,7 @@ export class SemanticAnalyzer {
         }
     }
 
-    visitWhile(stmt: WhileStatement) {
+    visitWhile(stmt: WhileStatement): boolean {
         this.visitExpression(stmt.condition);
 
         this.pushScope();
@@ -111,9 +112,11 @@ export class SemanticAnalyzer {
             this.visitStatement(s);
         }
         this.popScope();
+
+        return false;
     }
 
-    visitFor(stmt: ForStatement) {
+    visitFor(stmt: ForStatement): boolean {
         this.pushScope();
 
         if (stmt.init) {
@@ -137,9 +140,11 @@ export class SemanticAnalyzer {
         }
 
         this.popScope();
+
+        return false;
     }
 
-    visitForOf(stmt: ForOfStatement) {
+    visitForOf(stmt: ForOfStatement): boolean {
         this.pushScope();
 
         if (this.current.resolve(stmt.iterator.name)) {
@@ -162,6 +167,8 @@ export class SemanticAnalyzer {
         }
 
         this.popScope();
+
+        return false;
     }
 
     validateType(tp: TypeNode, i: number = 0) {
@@ -204,6 +211,8 @@ export class SemanticAnalyzer {
             type: stmt.variable.type ?? valueType,
             mutable: !stmt.variable.const,
         });
+
+        return false;
     }
 
     visitExpression(expr: Expression): TypeNode | null {
@@ -248,7 +257,7 @@ export class SemanticAnalyzer {
         }
     }
 
-    visitFunction(fn: FunctionDeclaration) {
+    visitFunction(fn: FunctionDeclaration): boolean {
         this.validateType(fn.returnType);
 
         if (this.current.resolve(fn.name)) {
@@ -285,15 +294,33 @@ export class SemanticAnalyzer {
             });
         }
 
+        let returns = false;
+
         for (const stmt of fn.body) {
-            this.visitStatement(stmt);
+            returns = this.visitStatement(stmt);
+            if (returns) break;
+        }
+
+        if (fn.returnType.kind == "UnionType") 
+            error({
+                code: ErrorCode.ILLEGAL_RETURN_STATEMENT,
+                reason: `Returning union type from functions is currently not allowed.`
+            })
+
+        if (fn.returnType.name !== "void" && !returns) {
+            error({
+                code: ErrorCode.MISSING_RETURN,
+                reason: `Function "${fn.name}" does not return on all paths`
+            });
         }
 
         this.current = prev;
         this.insideFunction = prevFn;
+
+        return false;
     }
 
-    visitReturn(stmt: ReturnStatement) {
+    visitReturn(stmt: ReturnStatement): boolean {
         if (!this.insideFunction) {
             error({
                 code: ErrorCode.ILLEGAL_RETURN_STATEMENT,
@@ -304,5 +331,7 @@ export class SemanticAnalyzer {
         if (stmt.argument) {
             this.visitExpression(stmt.argument);
         }
+
+        return true;
     }
 }
