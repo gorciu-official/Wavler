@@ -22,6 +22,7 @@ export enum ErrorCode {
     EXPECTED_KEYWORD,
     INVALID_FOR_SYNTAX,
     INVALID_FOR_OF_SYNTAX,
+    ILLEGAL_ASSIGNMENT,
 
     // --- semantic analyzer
     UNKNOWN_TYPE,

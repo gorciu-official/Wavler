@@ -7,6 +7,11 @@ export interface NumberLiteral {
     value: number;
 }
 
+export interface StringLiteral {
+    type: "StringLiteral";
+    value: string;
+}
+
 export interface Identifier {
     type: "Identifier";
     name: string;
@@ -19,6 +24,12 @@ export interface BinaryExpression {
     right: ASTNode;
 }
 
+export interface CallExpression {
+    type: "CallExpression";
+    callee: Expression;
+    arguments: Expression[];
+}
+
 export type BinaryOperator =
     | "+"
     | "-"
@@ -29,13 +40,23 @@ export type BinaryOperator =
     | "<<"
     | ">>";
 
+export interface AssignmentExpression {
+    type: "AssignmentExpression";
+    left: Identifier;
+    right: Expression;
+}
+
 export type Expression =
     | NumberLiteral
+    | StringLiteral
     | Identifier
-    | BinaryExpression;
+    | BinaryExpression
+    | AssignmentExpression
+    | CallExpression;
 
 export type Statement =
     | FunctionDeclaration
+    | ExternFunctionDeclaration
     | ReturnStatement
     | ExpressionStatement
     | VariableDeclaration
@@ -46,8 +67,15 @@ export type Statement =
 
 export type SimpleTypeNode = { kind: "SimpleType"; name: string };
 
+export type FunctionTypeNode = {
+    kind: "FunctionType";
+    params: TypeNode[];
+    returnType: TypeNode;
+};
+
 export type TypeNode =
     | SimpleTypeNode
+    | FunctionTypeNode
     | { kind: "UnionType"; types: TypeNode[] };
 
 export interface FunctionDeclaration {
@@ -55,6 +83,13 @@ export interface FunctionDeclaration {
     name: string;
     params: {name: string, type: TypeNode}[];
     body: Statement[]; returnType: TypeNode
+}
+
+export interface ExternFunctionDeclaration {
+    type: "ExternFunctionDeclaration";
+    name: string;
+    params: {name: string, type: TypeNode}[];
+    returnType: TypeNode;
 }
 
 export interface VariableDeclaration {

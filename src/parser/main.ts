@@ -1,9 +1,12 @@
 import {
+    AssignmentExpression,
     ASTNode,
     BinaryOperator,
     Expression,
     ExpressionStatement,
+    ExternFunctionDeclaration,
     FunctionDeclaration,
+    Identifier,
     ReturnStatement,
     Statement,
     TypeNode,
@@ -77,6 +80,9 @@ export class Parser {
         }
 
         switch (t.type) {
+            case TokenType.EXTERN_KEYWORD:
+                return this.parseExternFunction();
+
             case TokenType.FUNCTION_KEYWORD:
                 return this.parseFunction();
 
@@ -284,6 +290,49 @@ export class Parser {
         };
     }
 
+    private parseExternFunction(): ExternFunctionDeclaration {
+        this.advance(); // extern
+        this.expect(TokenType.FUNCTION_KEYWORD, "Expected 'function' after 'extern'");
+
+        const name = this.expect(
+            TokenType.IDENTIFIER,
+            "Expected function name"
+        ) as BaseToken<TokenType.IDENTIFIER, string>;
+
+        this.expect(TokenType.LPAREN, "Expected '(' after function name");
+
+        const params: { name: string; type: TypeNode }[] = [];
+
+        if (this.peek().type !== TokenType.RPAREN) {
+            do {
+                const p = this.expect(
+                    TokenType.IDENTIFIER,
+                    "Expected parameter name"
+                ) as BaseToken<TokenType.IDENTIFIER, string>;
+
+                this.expect(TokenType.COLON, "Expected ':' after parameter");
+
+                const type = this.parseType();
+
+                params.push({ name: p.value, type });
+            } while (this.match(TokenType.COMMA));
+        }
+
+        this.expect(TokenType.RPAREN, "Expected ')' after params");
+
+        let returnType: TypeNode = { kind: "SimpleType", name: "void" };
+        if (this.match(TokenType.COLON)) {
+            returnType = this.parseType();
+        }
+
+        return {
+            type: "ExternFunctionDeclaration",
+            name: name.value,
+            params,
+            returnType,
+        };
+    }
+
     private parseFunction(): FunctionDeclaration {
         this.advance(); // function
 
@@ -431,6 +480,9 @@ export class Parser {
             case TokenType.NUMBER:
                 return { type: "NumberLiteral", value: token.value };
 
+            case TokenType.STRING:
+                return { type: "StringLiteral", value: token.value };
+
             case TokenType.IDENTIFIER:
                 return { type: "Identifier", name: token.value };
 
@@ -443,12 +495,48 @@ export class Parser {
             default:
                 return error({
                     code: ErrorCode.UNEXPECTED_TOKEN,
-                    reason: "Unexpected token in expression",
+                    reason: "Unexpected token in expression (got " + token.value + ")",
                 });
         }
     }
 
     private led(token: Token, left: ASTNode, bp: BindingPower): Expression {
+        if (token.type === TokenType.LPAREN) {
+            const args: Expression[] = [];
+
+            if (this.peek().type !== TokenType.RPAREN) {
+                do {
+                    args.push(this.parseExpression(0));
+                } while (this.match(TokenType.COMMA));
+            }
+
+            this.expect(TokenType.RPAREN, "Expected ')' after arguments");
+
+            return {
+                type: "CallExpression",
+                callee: left as Expression,
+                arguments: args,
+            };
+        }
+
+        if (token.type === TokenType.ASSIGN_SIGN) {
+            if (left.type !== "Identifier") {
+                error({
+                    code: ErrorCode.ILLEGAL_ASSIGNMENT,
+                    reason: "Left side of assignment must be an identifier",
+                    line: token.line
+                });
+            }
+
+            const right = this.parseExpression(bp.right);
+
+            return {
+                type: "AssignmentExpression",
+                left: left as Identifier,
+                right,
+            };
+        }
+
         const right = this.parseExpression(bp.right);
 
         return {
@@ -461,6 +549,9 @@ export class Parser {
 
     private getBindingPower(token: Token): BindingPower | null {
         switch (token.type) {
+            case TokenType.LPAREN:
+                return { left: 80, right: 81 };
+
             case TokenType.STAR_SIGN:
             case TokenType.SLASH_SIGN:
                 return { left: 50, right: 51 };
@@ -476,6 +567,9 @@ export class Parser {
             case TokenType.BITSHIFT_LEFT:
             case TokenType.BITSHIFT_RIGHT:
                 return { left: 20, right: 21 };
+
+            case TokenType.ASSIGN_SIGN:
+                return { left: 10, right: 9 };
 
             default:
                 return null;

@@ -1,11 +1,22 @@
-import type { Expression, ForOfStatement, ForStatement, FunctionDeclaration, ReturnStatement, Statement, TypeNode, VariableDeclaration, WhileStatement } from "../definitions/ast-node.ts";
+import type {
+    Expression,
+    ExternFunctionDeclaration,
+    ForOfStatement,
+    ForStatement,
+    FunctionDeclaration,
+    ReturnStatement,
+    Statement,
+    TypeNode,
+    VariableDeclaration,
+    WhileStatement,
+} from "../definitions/ast-node.ts";
 import type { Symbol } from "../definitions/symbol.ts";
 import { error, ErrorCode } from "../logging.ts";
 
 const allowed_types: string[] = [
     'i64', 'i32', 'i16', 'i8',
     'u64', 'u32', 'u16', 'u8',
-    'string', 'void', 'f64', 'f32'
+    'string', 'void', 'f64', 'f32', 'boolean'
 ];
 const typescript_types: string[] = [
     'number', 'object'
@@ -65,7 +76,7 @@ export class SemanticAnalyzer {
     }
 
     visitStatement(stmt: Statement): boolean {
-        if (![ "EmptyStatement", "FunctionDeclaration" ].includes(stmt.type) && !this.insideFunction)
+        if (![ "EmptyStatement", "FunctionDeclaration", "ExternFunctionDeclaration" ].includes(stmt.type) && !this.insideFunction)
             error({
                 code: ErrorCode.STATEMENT_ILLEGAL_OUTSIDE_A_FUNCTION,
                 reason: `Statement type "${stmt.type}" cannot be used outside a function`
@@ -74,6 +85,9 @@ export class SemanticAnalyzer {
         switch (stmt.type) {
             case "FunctionDeclaration":
                 return this.visitFunction(stmt);
+
+            case "ExternFunctionDeclaration":
+                return this.visitExternFunction(stmt);
 
             case "VariableDeclaration":
                 return this.visitVar(stmt);
@@ -181,6 +195,13 @@ export class SemanticAnalyzer {
             return;
         }
 
+        if (tp.kind == "FunctionType") {
+            for (const param of tp.params)
+                this.validateType(param, i + 1);
+            this.validateType(tp.returnType, i + 1);
+            return;
+        }
+
         // SimpleType
         if (!allowed_types.includes(tp.name)) 
             error({
@@ -190,6 +211,33 @@ export class SemanticAnalyzer {
                     ? `Type "${tp.name}" is one of TypeScript types which we do not implement. Please change your type to one of supported ones: ${allowed_types.join(',')}`
                     : undefined
             }) 
+    }
+
+    visitExternFunction(fn: ExternFunctionDeclaration): boolean {
+        this.validateType(fn.returnType);
+
+        if (this.current.resolve(fn.name)) {
+            error({
+                code: ErrorCode.ALREADY_EXISTS,
+                reason: `Function ${fn.name} already exists`,
+            });
+        }
+
+        for (const p of fn.params) {
+            this.validateType(p.type);
+        }
+
+        this.current.declare({
+            name: fn.name,
+            mutable: false,
+            type: {
+                kind: "FunctionType",
+                params: fn.params.map((p) => p.type),
+                returnType: fn.returnType,
+            },
+        });
+
+        return false;
     }
 
     visitVar(stmt: VariableDeclaration) {
@@ -220,6 +268,9 @@ export class SemanticAnalyzer {
             case "NumberLiteral":
                 return { kind: "SimpleType", name: "i64" };
 
+            case "StringLiteral":
+                return { kind: "SimpleType", name: "string" };
+
             case "Identifier": {
                 const sym = this.current.resolve(expr.name);
 
@@ -230,7 +281,39 @@ export class SemanticAnalyzer {
                     });
                 }
 
-                return sym.type;
+                return sym!.type;
+            }
+
+            case "CallExpression": {
+                const calleeType = this.visitExpression(expr.callee);
+
+                if (calleeType?.kind !== "FunctionType") {
+                    error({
+                        code: ErrorCode.TYPE_MISMATCH,
+                        reason: `Callee is not a function`
+                    });
+                }
+
+                if (expr.arguments.length !== calleeType!.params.length) {
+                    error({
+                        code: ErrorCode.TYPE_MISMATCH,
+                        reason: `Expected ${calleeType!.params.length} arguments, got ${expr.arguments.length}`
+                    });
+                }
+
+                for (let i = 0; i < expr.arguments.length; i++) {
+                    const argType = this.visitExpression(expr.arguments[i]);
+                    const paramType = calleeType!.params[i];
+
+                    if (argType?.kind === "SimpleType" && paramType.kind === "SimpleType" && argType.name !== paramType.name) {
+                        error({
+                            code: ErrorCode.TYPE_MISMATCH,
+                            reason: `Argument type mismatch: expected ${paramType.name}, got ${argType.name}`
+                        });
+                    }
+                }
+
+                return calleeType!.returnType;
             }
 
             case "BinaryExpression": {
@@ -254,6 +337,39 @@ export class SemanticAnalyzer {
 
                 return left;
             }
+
+            case "AssignmentExpression": {
+                const sym = this.current.resolve(expr.left.name);
+
+                if (!sym) {
+                    error({
+                        code: ErrorCode.UNDEFINED_VARIABLE,
+                        reason: `Variable ${expr.left.name} does not exist`
+                    });
+                }
+
+                if (!sym.mutable) {
+                    error({
+                        code: ErrorCode.TYPE_MISMATCH, 
+                        reason: `Cannot assign to const variable ${expr.left.name}`
+                    });
+                }
+
+                const right = this.visitExpression(expr.right);
+
+                if (
+                    sym.type.kind === "SimpleType" &&
+                    right?.kind === "SimpleType" &&
+                    sym.type.name !== right.name
+                ) {
+                    error({
+                        code: ErrorCode.TYPE_MISMATCH,
+                        reason: `Type mismatch in assignment to ${expr.left.name}: expected ${sym.type.name}, got ${right.name}`
+                    });
+                }
+
+                return sym.type;
+            }
         }
     }
 
@@ -270,7 +386,11 @@ export class SemanticAnalyzer {
         this.current.declare({
             name: fn.name,
             mutable: false,
-            type: { kind: "SimpleType", name: "function" },
+            type: {
+                kind: "FunctionType",
+                params: fn.params.map((p) => p.type),
+                returnType: fn.returnType,
+            },
         });
 
         const prev = this.current;
@@ -301,10 +421,10 @@ export class SemanticAnalyzer {
             if (returns) break;
         }
 
-        if (fn.returnType.kind == "UnionType") 
+        if (fn.returnType.kind !== "SimpleType") 
             error({
                 code: ErrorCode.ILLEGAL_RETURN_STATEMENT,
-                reason: `Returning union type from functions is currently not allowed.`
+                reason: `Returning union/function type from functions is currently not allowed.`
             })
 
         if (fn.returnType.name !== "void" && !returns) {
