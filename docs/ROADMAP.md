@@ -20,8 +20,8 @@
 18. [X] For and while loops
 18. [ ] Implement more complex type parsing (supporting parens inside, generics etc)
 19. [X] Base semantic analyzer
-20. [ ] Assigment expressions
+20. [X] Assigment expressions
 21. [X] Base codegen
-22. [ ] Call expressions
+22. [X] Call expressions
 
 That's for now lmao.
