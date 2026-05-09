@@ -5,11 +5,9 @@ import type {
     ForStatement,
     FunctionDeclaration,
     IfExpression,
-    MemberAccess,
     ReturnStatement,
     Statement,
     StructDeclaration,
-    StructInstantiation,
     TypeNode,
     VariableDeclaration,
     WhileStatement,
@@ -20,7 +18,7 @@ import { error, ErrorCode } from "../logging.ts";
 const allowed_types: string[] = [
     'i64', 'i32', 'i16', 'i8',
     'u64', 'u32', 'u16', 'u8',
-    'string', 'void', 'f64', 'f32', 'boolean'
+    'cstring', 'void', 'f64', 'f32', 'boolean'
 ];
 const typescript_types: string[] = [
     'number', 'object'
@@ -49,7 +47,16 @@ export class SemanticAnalyzer {
     private global = new Scope(null);
     private current = this.global;
     private insideFunction = false;
-    private structs = new Map<string, StructDeclaration>();
+    private structs = new Map<string, StructDeclaration>([
+        ["string", {
+            type: "StructDeclaration",
+            name: "string",
+            fields: [
+                { name: "data", type: { kind: "SimpleType", name: "cstring" } },
+                { name: "size", type: { kind: "SimpleType", name: "i64" } }
+            ]
+        }]
+    ]);
 
     analyze(program: Statement[]) {
         if (!this.global.resolve("true")) {
@@ -310,6 +317,20 @@ export class SemanticAnalyzer {
 
         const valueType = this.visitExpression(stmt.variable.value);
 
+        const targetType = stmt.variable.type;
+        if (targetType && targetType.kind === "SimpleType" && targetType.name === "string" && stmt.variable.value.type === "StringLiteral") {
+            // allow StringLiteral to be assigned to 'string' 
+        } else if (
+            targetType?.kind === "SimpleType" &&
+            valueType?.kind === "SimpleType" &&
+            targetType.name !== valueType.name
+        ) {
+            error({
+                code: ErrorCode.TYPE_MISMATCH,
+                reason: `Variable ${name} type mismatch: expected ${targetType.name}, got ${valueType.name}`
+            });
+        }
+
         this.current.declare({
             name,
             type: stmt.variable.type ?? valueType,
@@ -328,7 +349,7 @@ export class SemanticAnalyzer {
                 return { kind: "SimpleType", name: "i64" };
 
             case "StringLiteral":
-                return { kind: "SimpleType", name: "string" };
+                return { kind: "SimpleType", name: "cstring" };
 
             case "Identifier": {
                 const sym = this.current.resolve(expr.name);
@@ -364,7 +385,9 @@ export class SemanticAnalyzer {
                     const argType = this.visitExpression(expr.arguments[i]);
                     const paramType = calleeType!.params[i];
 
-                    if (argType?.kind === "SimpleType" && paramType.kind === "SimpleType" && argType.name !== paramType.name) {
+                    if (paramType.kind === "SimpleType" && paramType.name === "string" && expr.arguments[i].type === "StringLiteral") {
+                        // allow StringLiteral as 'string' struct
+                    } else if (argType?.kind === "SimpleType" && paramType.kind === "SimpleType" && argType.name !== paramType.name) {
                         error({
                             code: ErrorCode.TYPE_MISMATCH,
                             reason: `Argument type mismatch: expected ${paramType.name}, got ${argType.name}`
@@ -416,7 +439,9 @@ export class SemanticAnalyzer {
 
                 const right = this.visitExpression(expr.right);
 
-                if (
+                if (sym.type.kind === "SimpleType" && sym.type.name === "string" && expr.right.type === "StringLiteral") {
+                    // allow StringLiteral assignment to 'string' struct
+                } else if (
                     sym.type.kind === "SimpleType" &&
                     right?.kind === "SimpleType" &&
                     sym.type.name !== right.name
@@ -484,7 +509,9 @@ export class SemanticAnalyzer {
                     }
 
                     const valType = this.visitExpression(field.value);
-                    if (
+                    if (structField!.type.kind === "SimpleType" && structField!.type.name === "string" && field.value.type === "StringLiteral") {
+                        // allow StringLiteral for 'string' struct field
+                    } else if (
                         valType?.kind === "SimpleType" &&
                         structField!.type.kind === "SimpleType" &&
                         valType.name !== structField!.type.name

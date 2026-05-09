@@ -6,21 +6,26 @@ import type {
     IfExpression,
     TypeNode,
     StructDeclaration,
-    StructInstantiation,
-    MemberAccess
 } from "../definitions/ast-node.ts";
 
 import { error, ErrorCode, warn, WarnCode } from "../logging.ts";
 
-type LLVMType = string;
-
 export class LLVMCodeGen {
     private fnRetType: SimpleTypeNode | null = null;
     private tmpId = 0;
-    private locals = new Map<string, { ptr: string, ty: string }>(); // variable -> { alloca name, type }
+    private locals = new Map<string, { ptr: string, ty: string, typeNode: TypeNode }>(); // variable -> { alloca name, type, original type }
     private strings = new Map<string, string>(); // content -> global name
     private functionSignatures = new Map<string, { params: TypeNode[], returnType: TypeNode }>();
-    private structs = new Map<string, StructDeclaration>();
+    private structs = new Map<string, StructDeclaration>([
+        ["string", {
+            type: "StructDeclaration",
+            name: "string",
+            fields: [
+                { name: "data", type: { kind: "SimpleType", name: "cstring" } },
+                { name: "size", type: { kind: "SimpleType", name: "i64" } }
+            ]
+        }]
+    ]);
     private emit: string[] = [];
 
     constructor(private body: Statement[]) {
@@ -77,7 +82,7 @@ export class LLVMCodeGen {
             const ty = this.toLLVMType(p.type);
             ir += `    ${ptr} = alloca ${ty}\n`;
             ir += `    store ${ty} %${p.name}, ptr ${ptr}\n`;
-            this.locals.set(p.name, { ptr, ty });
+            this.locals.set(p.name, { ptr, ty, typeNode: p.type });
         }
 
         for (const stmt of fn.body) {
@@ -116,10 +121,10 @@ export class LLVMCodeGen {
                     return "ret void";
                 }
             
-                const val = this.processExpression(stmt.argument);
+                const val = this.processExpression(stmt.argument, this.fnRetType);
             
                 const code = this.emit.splice(0).join("\n    ");
-                return `${code}\n    ret ${this.fnRetType?.name} ${val}`;
+                return `${code}\n    ret ${this.toLLVMType(this.fnRetType!)} ${val}`;
             } 
 
             case "ExpressionStatement": {
@@ -135,9 +140,9 @@ export class LLVMCodeGen {
                 const ptr = this.fresh();
                 const ty = this.toLLVMType(v.type);
 
-                this.locals.set(v.name, { ptr, ty });
+                this.locals.set(v.name, { ptr, ty, typeNode: v.type });
 
-                const val = this.processExpression(v.value);
+                const val = this.processExpression(v.value, v.type);
                 const code = this.emit.splice(0).join("\n    ");
 
                 return [
@@ -229,7 +234,32 @@ export class LLVMCodeGen {
         }
     }
 
-    processExpression(expr: Expression): string {
+    private processStringLiteral(expr: StringLiteral, targetType: TypeNode | null): string {
+        const id = `@.str.${this.strings.size}`;
+        this.strings.set(expr.value, id);
+
+        if (targetType?.kind === "SimpleType" && targetType.name === "string") {
+            const structType = "%struct.string";
+            const ptr = this.fresh();
+            this.emit.push(`${ptr} = alloca ${structType}`);
+            
+            const dataPtr = this.fresh();
+            this.emit.push(`${dataPtr} = getelementptr inbounds ${structType}, ptr ${ptr}, i32 0, i32 0`);
+            this.emit.push(`store ptr ${id}, ptr ${dataPtr}`);
+            
+            const sizePtr = this.fresh();
+            this.emit.push(`${sizePtr} = getelementptr inbounds ${structType}, ptr ${ptr}, i32 0, i32 1`);
+            this.emit.push(`store i64 ${expr.value.length}, ptr ${sizePtr}`);
+            
+            const res = this.fresh();
+            this.emit.push(`${res} = load ${structType}, ptr ${ptr}`);
+            return res;
+        }
+
+        return id;
+    }
+
+    processExpression(expr: Expression, targetType: TypeNode | null = null): string {
         switch (expr.type) {
             case "IfExpression":
                 return this.processIfExpression(expr);
@@ -238,9 +268,7 @@ export class LLVMCodeGen {
                 return expr.value.toString();
 
             case "StringLiteral": {
-                const id = `@.str.${this.strings.size}`;
-                this.strings.set(expr.value, id);
-                return id;
+                return this.processStringLiteral(expr, targetType);
             }
     
             case "Identifier": {
@@ -272,7 +300,7 @@ export class LLVMCodeGen {
                 }
 
                 const args = expr.arguments.map((arg, i) => {
-                    const val = this.processExpression(arg);
+                    const val = this.processExpression(arg, sig!.params[i]);
                     return `${this.toLLVMType(sig!.params[i])} ${val}`;
                 }).join(", ");
 
@@ -337,7 +365,7 @@ export class LLVMCodeGen {
                     });
                 }
 
-                const val = this.processExpression(expr.right);
+                const val = this.processExpression(expr.right, info.typeNode);
                 this.emit.push(`store ${info.ty} ${val}, ptr ${info.ptr}`);
                 return val;
             }
@@ -352,7 +380,7 @@ export class LLVMCodeGen {
                 for (const field of expr.fields) {
                     const fieldIdx = struct.fields.findIndex(f => f.name === field.name);
                     const structField = struct.fields[fieldIdx];
-                    const val = this.processExpression(field.value);
+                    const val = this.processExpression(field.value, structField.type);
                     const fieldPtr = this.fresh();
                     const fieldType = this.toLLVMType(structField.type);
                     
@@ -441,7 +469,7 @@ export class LLVMCodeGen {
                 return t.name;
             case "boolean":
                 return "i1";
-            case "string":
+            case "cstring":
                 return "ptr";
             default:
                 if (this.structs.has(t.name)) {
@@ -456,13 +484,22 @@ export class LLVMCodeGen {
     }
 
     generate(): string {
+        let structsIr = "";
+        for (const [_name, stmt] of this.structs) {
+            structsIr += this.processStructDeclaration(stmt) + "\n";
+        }
+
         let bodyIr = "";
         for (const stmt of this.body) {
+            if (stmt.type === "StructDeclaration") continue;
             const res = this.processStatement(stmt);
             if (res) bodyIr += res + "\n";
         }
 
         let out = 'target triple = "x86_64-pc-linux-gnu"\n\n';
+
+        out += structsIr;
+        if (structsIr.length > 0) out += "\n";
 
         for (const [content, id] of this.strings) {
             const escaped = content.replace(/\n/g, "\\0A").replace(/"/g, '\\22');
