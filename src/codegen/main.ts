@@ -3,6 +3,7 @@ import type {
     SimpleTypeNode,
     Statement,
     Expression,
+    IfExpression,
     TypeNode
 } from "../definitions/ast-node.ts";
 
@@ -216,6 +217,9 @@ export class LLVMCodeGen {
 
     processExpression(expr: Expression): string {
         switch (expr.type) {
+            case "IfExpression":
+                return this.processIfExpression(expr);
+
             case "NumberLiteral":
                 return expr.value.toString();
 
@@ -325,6 +329,41 @@ export class LLVMCodeGen {
             }
         }
     } 
+
+    private processIfExpression(expr: IfExpression): string {
+        const id = this.tmpId++;
+        const thenLabel = `if_then_${id}`;
+        const elseLabel = `if_else_${id}`;
+        const endLabel = `if_end_${id}`;
+
+        const condVal = this.processExpression(expr.condition);
+        const condCode = this.emit.splice(0).join("\n    ");
+        
+        let ir = "";
+        if (condCode) ir += `${condCode}\n    `;
+        ir += `br i1 ${condVal}, label %${thenLabel}, label %${elseLabel}\n`;
+
+        ir += `\n${thenLabel}:\n`;
+        for (const s of expr.thenBranch) {
+            const out = this.processStatement(s);
+            if (out) ir += `    ${out}\n`;
+        }
+        ir += `    br label %${endLabel}\n`;
+
+        ir += `\n${elseLabel}:\n`;
+        if (expr.elseBranch) {
+            for (const s of expr.elseBranch) {
+                const out = this.processStatement(s);
+                if (out) ir += `    ${out}\n`;
+            }
+        }
+        ir += `    br label %${endLabel}\n`;
+
+        ir += `\n${endLabel}:\n`;
+
+        this.emit.push(ir.trim());
+        return "";
+    }
 
     private toLLVMType(t: TypeNode): LLVMType {
         if (t.kind !== "SimpleType")

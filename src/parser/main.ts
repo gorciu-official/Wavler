@@ -7,6 +7,7 @@ import {
     ExternFunctionDeclaration,
     FunctionDeclaration,
     Identifier,
+    IfExpression,
     ReturnStatement,
     Statement,
     TypeNode,
@@ -80,6 +81,9 @@ export class Parser {
         }
 
         switch (t.type) {
+            case TokenType.IF_KEYWORD:
+                return { type: "ExpressionStatement", expression: this.parseIfExpression() };
+
             case TokenType.EXTERN_KEYWORD:
                 return this.parseExternFunction();
 
@@ -215,6 +219,32 @@ export class Parser {
             condition,
             update,
             body,
+        };
+    }
+
+    private parseIfExpression(): IfExpression {
+        this.advance(); // if
+
+        this.expect(TokenType.LPAREN, "Expected '(' after if");
+        const condition = this.parseExpression(0);
+        this.expect(TokenType.RPAREN, "Expected ')' after condition");
+
+        const thenBranch = this.peek().type === TokenType.LBRACE
+            ? this.parseBlock()
+            : [this.parseStatement()];
+
+        let elseBranch: Statement[] | null = null;
+        if (this.match(TokenType.ELSE_KEYWORD)) {
+            elseBranch = this.peek().type === TokenType.LBRACE
+                ? this.parseBlock()
+                : [this.parseStatement()];
+        }
+
+        return {
+            type: "IfExpression",
+            condition,
+            thenBranch,
+            elseBranch
         };
     }
 
@@ -477,6 +507,9 @@ export class Parser {
 
     private nud(token: Token): Expression {
         switch (token.type) {
+            case TokenType.IF_KEYWORD:
+                return this.parseIfExpression();
+
             case TokenType.NUMBER:
                 return { type: "NumberLiteral", value: token.value };
 

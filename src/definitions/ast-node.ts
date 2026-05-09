@@ -46,13 +46,21 @@ export interface AssignmentExpression {
     right: Expression;
 }
 
+export interface IfExpression {
+    type: "IfExpression";
+    condition: Expression;
+    thenBranch: Statement[];
+    elseBranch: Statement[] | null;
+}
+
 export type Expression =
     | NumberLiteral
     | StringLiteral
     | Identifier
     | BinaryExpression
     | AssignmentExpression
-    | CallExpression;
+    | CallExpression
+    | IfExpression;
 
 export type Statement =
     | FunctionDeclaration

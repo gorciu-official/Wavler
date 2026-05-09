@@ -4,6 +4,7 @@ import type {
     ForOfStatement,
     ForStatement,
     FunctionDeclaration,
+    IfExpression,
     ReturnStatement,
     Statement,
     TypeNode,
@@ -93,6 +94,9 @@ export class SemanticAnalyzer {
                 return this.visitVar(stmt);
 
             case "ExpressionStatement":
+                if (stmt.expression.type === "IfExpression") {
+                    return this.visitIfAsStatement(stmt.expression);
+                }
                 this.visitExpression(stmt.expression);
                 return false;
 
@@ -128,6 +132,35 @@ export class SemanticAnalyzer {
         this.popScope();
 
         return false;
+    }
+
+    visitIfExpression(expr: IfExpression): TypeNode | null {
+        this.visitIfAsStatement(expr);
+        return { kind: "SimpleType", name: "void" };
+    }
+
+    visitIfAsStatement(expr: IfExpression): boolean {
+        this.visitExpression(expr.condition);
+
+        let thenReturns = false;
+        this.pushScope();
+        for (const s of expr.thenBranch) {
+            if (this.visitStatement(s)) thenReturns = true;
+        }
+        this.popScope();
+
+        let elseReturns = false;
+        if (expr.elseBranch) {
+            this.pushScope();
+            for (const s of expr.elseBranch) {
+                if (this.visitStatement(s)) elseReturns = true;
+            }
+            this.popScope();
+        } else {
+            return false;
+        }
+
+        return thenReturns && elseReturns;
     }
 
     visitFor(stmt: ForStatement): boolean {
@@ -265,6 +298,9 @@ export class SemanticAnalyzer {
 
     visitExpression(expr: Expression): TypeNode | null {
         switch (expr.type) {
+            case "IfExpression":
+                return this.visitIfExpression(expr);
+
             case "NumberLiteral":
                 return { kind: "SimpleType", name: "i64" };
 
