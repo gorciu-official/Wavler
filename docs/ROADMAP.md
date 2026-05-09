@@ -12,8 +12,8 @@
 10. [X] Semicolon as statement terminator.
 11. [X] Lexing and parsing constant assigments.
 12. [X] Same as previous point, but variables (`let`)
-13. [ ] Parser and lexer support for ternary operator 
-14. [ ] If expressions lexer and parser support
+13. [ ] Support for ternary operator 
+14. [X] If expressions lexer and parser support
 15. [X] Support for explicit return types in functions
 16. [X] Support for explicit parameter types in functions 
 17. [X] Support for explicit variable types
@@ -23,5 +23,6 @@
 20. [X] Assigment expressions
 21. [X] Base codegen
 22. [X] Call expressions
+23. [ ] Global constants
 
 That's for now lmao.
