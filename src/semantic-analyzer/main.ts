@@ -47,6 +47,7 @@ export class SemanticAnalyzer {
     private global = new Scope(null);
     private current = this.global;
     private insideFunction = false;
+    private currentReturnType: TypeNode | null = null;
     private structs = new Map<string, StructDeclaration>([
         ["string", {
             type: "StructDeclaration",
@@ -318,16 +319,16 @@ export class SemanticAnalyzer {
         const valueType = this.visitExpression(stmt.variable.value);
 
         const targetType = stmt.variable.type;
-        if (targetType && targetType.kind === "SimpleType" && targetType.name === "string" && stmt.variable.value.type === "StringLiteral") {
-            // allow StringLiteral to be assigned to 'string' 
-        } else if (
-            targetType?.kind === "SimpleType" &&
-            valueType?.kind === "SimpleType" &&
-            targetType.name !== valueType.name
+        if (
+            targetType &&
+            valueType &&
+            !this.isTypeCompatible(targetType, valueType, stmt.variable.value)
         ) {
             error({
                 code: ErrorCode.TYPE_MISMATCH,
-                reason: `Variable ${name} type mismatch: expected ${targetType.name}, got ${valueType.name}`
+                reason: `Variable ${name} type mismatch: expected ${this.typeName(
+                    targetType
+                )}, got ${this.typeName(valueType)}`,
             });
         }
 
@@ -528,14 +529,46 @@ export class SemanticAnalyzer {
         }
     }
 
+    private typeName(tp: TypeNode): string {
+        if (tp.kind === "SimpleType") return tp.name;
+        if (tp.kind === "UnionType") return tp.types.map((t) => this.typeName(t)).join(" | ");
+        if (tp.kind === "FunctionType") {
+            return `function(${
+                tp.params.map((t) => this.typeName(t)).join(", ")
+            }): ${this.typeName(tp.returnType)}`;
+        }
+        return "unknown";
+    }
+
+    private isTypeCompatible(
+        expected: TypeNode,
+        actual: TypeNode,
+        expr?: Expression
+    ): boolean {
+        if (expected.kind === "SimpleType" && actual.kind === "SimpleType") {
+            if (expected.name === actual.name) return true;
+            if (
+                expected.name === "string" &&
+                actual.name === "cstring" &&
+                expr?.type === "StringLiteral"
+            ) {
+                return true;
+            }
+            return false;
+        }
+        // Basic check for other types
+        if (expected.kind !== actual.kind) return false;
+        return this.typeName(expected) === this.typeName(actual);
+    }
+
     visitFunction(fn: FunctionDeclaration): boolean {
         this.validateType(fn.returnType);
 
         if (this.current.resolve(fn.name)) {
             error({
                 code: ErrorCode.ALREADY_EXISTS,
-                reason: `Function ${fn.name} already exists`
-            }); 
+                reason: `Function ${fn.name} already exists`,
+            });
         }
 
         this.current.declare({
@@ -550,16 +583,18 @@ export class SemanticAnalyzer {
 
         const prev = this.current;
         const prevFn = this.insideFunction;
+        const prevReturnType = this.currentReturnType;
 
         if (prevFn) {
             error({
                 code: ErrorCode.ILLEGAL_FUNCTION_STATEMENT,
-                reason: "Function statement inside a function is not allowed"
+                reason: "Function statement inside a function is not allowed",
             });
         }
 
         this.current = new Scope(prev);
         this.insideFunction = true;
+        this.currentReturnType = fn.returnType;
 
         for (const p of fn.params) {
             this.current.declare({
@@ -576,21 +611,23 @@ export class SemanticAnalyzer {
             if (returns) break;
         }
 
-        if (fn.returnType.kind !== "SimpleType") 
+        if (fn.returnType.kind !== "SimpleType") {
             error({
                 code: ErrorCode.ILLEGAL_RETURN_STATEMENT,
-                reason: `Returning union/function type from functions is currently not allowed.`
-            })
+                reason: `Returning union/function type from functions is currently not allowed.`,
+            });
+        }
 
         if (fn.returnType.name !== "void" && !returns) {
             error({
                 code: ErrorCode.MISSING_RETURN,
-                reason: `Function "${fn.name}" does not return on all paths`
+                reason: `Function "${fn.name}" does not return on all paths`,
             });
         }
 
         this.current = prev;
         this.insideFunction = prevFn;
+        this.currentReturnType = prevReturnType;
 
         return false;
     }
@@ -599,12 +636,29 @@ export class SemanticAnalyzer {
         if (!this.insideFunction) {
             error({
                 code: ErrorCode.ILLEGAL_RETURN_STATEMENT,
-                reason: "Illegal return statement"
+                reason: "Illegal return statement",
             });
         }
 
-        if (stmt.argument) {
-            this.visitExpression(stmt.argument);
+        const actualType = stmt.argument
+            ? this.visitExpression(stmt.argument)
+            : ({ kind: "SimpleType", name: "void" } as TypeNode);
+
+        if (this.currentReturnType && actualType) {
+            if (
+                !this.isTypeCompatible(
+                    this.currentReturnType,
+                    actualType,
+                    stmt.argument ?? undefined
+                )
+            ) {
+                error({
+                    code: ErrorCode.TYPE_MISMATCH,
+                    reason: `Function return type mismatch: expected ${this.typeName(
+                        this.currentReturnType
+                    )}, got ${this.typeName(actualType)}`,
+                });
+            }
         }
 
         return true;

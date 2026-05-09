@@ -29,7 +29,7 @@ export class Parser {
     constructor(private tokens: Token[]) {}
 
     private peek(): Token {
-        return this.tokens[this.pos];
+        return this.tokens[this.pos] || this.tokens[this.tokens.length - 1];
     }
 
     private advance(): Token {
@@ -66,6 +66,7 @@ export class Parser {
         const body: Statement[] = [];
 
         while (!this.isAtEnd()) {
+            if (this.peek().type === TokenType.EOF) break;
             body.push(this.parseStatement());
         }
 
@@ -77,6 +78,10 @@ export class Parser {
 
         if (t.type === TokenType.SEMICOLON) {
             this.advance();
+            return { type: "EmptyStatement" };
+        }
+
+        if (t.type === TokenType.RBRACE) {
             return { type: "EmptyStatement" };
         }
 

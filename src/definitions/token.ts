@@ -23,7 +23,7 @@ export enum TokenType {
 
     LESS_THAN, GREATER_THAN,
     BITSHIFT_LEFT, BITSHIFT_RIGHT,
-    DOT
+    DOT, EOF
 }
 
 type NonSpecialTokenType = Exclude<

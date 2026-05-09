@@ -234,6 +234,27 @@ export class LLVMCodeGen {
         }
     }
 
+    private getTypeOfExpression(expr: Expression): TypeNode {
+        switch (expr.type) {
+            case "NumberLiteral":
+                return { kind: "SimpleType", name: "i64" };
+            case "StringLiteral":
+                return { kind: "SimpleType", name: "cstring" };
+            case "Identifier":
+                return this.locals.get(expr.name)?.typeNode ?? { kind: "SimpleType", name: "i64" };
+            case "CallExpression":
+                return this.functionSignatures.get(expr.callee.type === "Identifier" ? expr.callee.name : "")?.returnType ?? { kind: "SimpleType", name: "i64" };
+            case "BinaryExpression":
+                return this.getTypeOfExpression(expr.left as Expression);
+            case "MemberAccess":
+                return { kind: "SimpleType", name: "i64" }; // simplified
+            case "IfExpression":
+                return { kind: "SimpleType", name: "void" };
+            default:
+                return { kind: "SimpleType", name: "i64" };
+        }
+    }
+
     private processStringLiteral(expr: StringLiteral, targetType: TypeNode | null): string {
         const id = `@.str.${this.strings.size}`;
         this.strings.set(expr.value, id);
@@ -317,44 +338,46 @@ export class LLVMCodeGen {
 
             case "BinaryExpression": {
                 const l = this.processExpression(expr.left as Expression);
+                const leftType = this.getTypeOfExpression(expr.left as Expression);
                 const r = this.processExpression(expr.right as Expression);
     
                 const tmp = this.fresh();
+                const llvmType = this.toLLVMType(leftType);
     
                 switch (expr.operator) {
                     case "+":
-                        this.emit.push(`${tmp} = add i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = add ${llvmType} ${l}, ${r}`);
                         return tmp;
                     case "-":
-                        this.emit.push(`${tmp} = sub i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = sub ${llvmType} ${l}, ${r}`);
                         return tmp;
                     case "*":
-                        this.emit.push(`${tmp} = mul i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = mul ${llvmType} ${l}, ${r}`);
                         return tmp;
                     case "/":
-                        this.emit.push(`${tmp} = sdiv i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = sdiv ${llvmType} ${l}, ${r}`);
                         return tmp;
     
                     case "<":
-                        this.emit.push(`${tmp} = icmp slt i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = icmp slt ${llvmType} ${l}, ${r}`);
                         return tmp;
     
                     case ">":
-                        this.emit.push(`${tmp} = icmp sgt i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = icmp sgt ${llvmType} ${l}, ${r}`);
                         return tmp;
 
                     case "<<":
-                        this.emit.push(`${tmp} = shl i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = shl ${llvmType} ${l}, ${r}`);
                         return tmp;
                     
                     case ">>":
-                        this.emit.push(`${tmp} = ashr i64 ${l}, ${r}`);
+                        this.emit.push(`${tmp} = ashr ${llvmType} ${l}, ${r}`);
                         return tmp;
 
                 }
-
-                // deno lint is stupid there is no fallthrough 
-            }   /* falls through */
+                
+                return tmp;
+            }
 
             case "AssignmentExpression": {
                 const info = this.locals.get(expr.left.name);
