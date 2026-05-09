@@ -4,3 +4,4 @@ examples/testing.wvl
 # output files
 test
 test.ll
+deno.lock
