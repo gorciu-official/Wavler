@@ -16,7 +16,7 @@ export class Lexer {
             "let": TokenType.LET_KEYWORD, "const": TokenType.CONST_KEYWORD,
             "for": TokenType.FOR_KEYWORD, "while": TokenType.WHILE_KEYWORD,
             "of": TokenType.OF_KEYWORD, "type": TokenType.TYPE_KEYWORD,
-            "extern": TokenType.EXTERN_KEYWORD
+            "extern": TokenType.EXTERN_KEYWORD, "struct": TokenType.STRUCT_KEYWORD
         };
 
         const value = ident.value;
@@ -167,6 +167,9 @@ export class Lexer {
                 this.pushSingle({ type: TokenType.PIPE, value: "|", line });
                 break;
 
+            case '.':
+                this.pushSingle({ type: TokenType.DOT, value: ".", line });
+                break;
             case '=':
                 this.pushSingle({ type: TokenType.ASSIGN_SIGN, value: "=", line });
                 break;

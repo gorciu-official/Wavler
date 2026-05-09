@@ -1,5 +1,4 @@
 import {
-    AssignmentExpression,
     ASTNode,
     BinaryOperator,
     Expression,
@@ -10,6 +9,7 @@ import {
     IfExpression,
     ReturnStatement,
     Statement,
+    StructDeclaration,
     TypeNode,
     VariableDeclaration,
 } from "../definitions/ast-node.ts";
@@ -89,6 +89,9 @@ export class Parser {
 
             case TokenType.FUNCTION_KEYWORD:
                 return this.parseFunction();
+
+            case TokenType.STRUCT_KEYWORD:
+                return this.parseStructDeclaration();
 
             case TokenType.RETURN_KEYWORD:
                 return this.parseReturn();
@@ -363,6 +366,44 @@ export class Parser {
         };
     }
 
+    private parseStructDeclaration(): StructDeclaration {
+        this.advance(); // struct
+
+        const name = (this.expect(
+            TokenType.IDENTIFIER,
+            "Expected struct name"
+        ) as BaseToken<TokenType.IDENTIFIER, string>).value;
+
+        this.expect(TokenType.LBRACE, "Expected '{' after struct name");
+
+        const fields: { name: string; type: TypeNode }[] = [];
+
+        while (this.peek().type !== TokenType.RBRACE) {
+            if (this.match(TokenType.SEMICOLON)) continue;
+
+            const fieldName = (this.expect(
+                TokenType.IDENTIFIER,
+                "Expected field name"
+            ) as BaseToken<TokenType.IDENTIFIER, string>).value;
+
+            this.expect(TokenType.COLON, "Expected ':' after field name");
+
+            const fieldType = this.parseType();
+
+            fields.push({ name: fieldName, type: fieldType });
+
+            this.match(TokenType.COMMA);
+        }
+
+        this.expect(TokenType.RBRACE, "Expected '}' after struct fields");
+
+        return {
+            type: "StructDeclaration",
+            name,
+            fields,
+        };
+    }
+
     private parseFunction(): FunctionDeclaration {
         this.advance(); // function
 
@@ -516,8 +557,39 @@ export class Parser {
             case TokenType.STRING:
                 return { type: "StringLiteral", value: token.value };
 
-            case TokenType.IDENTIFIER:
+            case TokenType.IDENTIFIER: {
+                if (this.peek().type === TokenType.LBRACE) {
+                    this.advance(); // {
+                    const fields: { name: string; value: Expression }[] = [];
+
+                    if (this.peek().type !== TokenType.RBRACE) {
+                        do {
+                            while (this.match(TokenType.SEMICOLON));
+                            if (this.peek().type === TokenType.RBRACE) break;
+
+                            const fieldName = (this.expect(
+                                TokenType.IDENTIFIER,
+                                "Expected field name"
+                            ) as BaseToken<TokenType.IDENTIFIER, string>).value;
+
+                            this.expect(TokenType.COLON, "Expected ':' after field name");
+
+                            const value = this.parseExpression(0);
+
+                            fields.push({ name: fieldName, value });
+                        } while (this.match(TokenType.COMMA));
+                    }
+
+                    this.expect(TokenType.RBRACE, "Expected '}' after struct instantiation");
+
+                    return {
+                        type: "StructInstantiation",
+                        structName: token.value,
+                        fields
+                    };
+                }
                 return { type: "Identifier", name: token.value };
+            }
 
             case TokenType.LPAREN: {
                 const expr = this.parseExpression(0);
@@ -534,6 +606,19 @@ export class Parser {
     }
 
     private led(token: Token, left: ASTNode, bp: BindingPower): Expression {
+        if (token.type === TokenType.DOT) {
+            const member = (this.expect(
+                TokenType.IDENTIFIER,
+                "Expected member name"
+            ) as BaseToken<TokenType.IDENTIFIER, string>).value;
+
+            return {
+                type: "MemberAccess",
+                object: left as Expression,
+                member,
+            };
+        }
+
         if (token.type === TokenType.LPAREN) {
             const args: Expression[] = [];
 
@@ -582,6 +667,9 @@ export class Parser {
 
     private getBindingPower(token: Token): BindingPower | null {
         switch (token.type) {
+            case TokenType.DOT:
+                return { left: 90, right: 91 };
+
             case TokenType.LPAREN:
                 return { left: 80, right: 81 };
 

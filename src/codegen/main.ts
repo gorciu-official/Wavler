@@ -4,19 +4,23 @@ import type {
     Statement,
     Expression,
     IfExpression,
-    TypeNode
+    TypeNode,
+    StructDeclaration,
+    StructInstantiation,
+    MemberAccess
 } from "../definitions/ast-node.ts";
 
 import { error, ErrorCode, warn, WarnCode } from "../logging.ts";
 
-type LLVMType = "i64" | "i32" | "i16" | "i8" | "f64" | "f32" | "u64" | "u32" | "u16" | "u8" | "void" | "i1" | "ptr";
+type LLVMType = string;
 
 export class LLVMCodeGen {
     private fnRetType: SimpleTypeNode | null = null;
     private tmpId = 0;
-    private locals = new Map<string, { ptr: string, ty: LLVMType }>(); // variable -> { alloca name, type }
+    private locals = new Map<string, { ptr: string, ty: string }>(); // variable -> { alloca name, type }
     private strings = new Map<string, string>(); // content -> global name
     private functionSignatures = new Map<string, { params: TypeNode[], returnType: TypeNode }>();
+    private structs = new Map<string, StructDeclaration>();
     private emit: string[] = [];
 
     constructor(private body: Statement[]) {
@@ -30,6 +34,8 @@ export class LLVMCodeGen {
                     params: stmt.params.map(p => p.type),
                     returnType: stmt.returnType
                 });
+            } else if (stmt.type === "StructDeclaration") {
+                this.structs.set(stmt.name, stmt);
             }
         }
     }
@@ -41,6 +47,11 @@ export class LLVMCodeGen {
     private resetFnState() {
         this.tmpId = 0;
         this.locals.clear();
+    }
+
+    processStructDeclaration(stmt: StructDeclaration): string {
+        const fields = stmt.fields.map(f => this.toLLVMType(f.type)).join(", ");
+        return `%struct.${stmt.name} = type { ${fields} }`;
     }
 
     processFunction(fn: FunctionDeclaration): string {
@@ -86,6 +97,9 @@ export class LLVMCodeGen {
 
     processStatement(stmt: Statement): string | null {
         switch (stmt.type) {
+            case "StructDeclaration":
+                return this.processStructDeclaration(stmt);
+
             case "FunctionDeclaration":
                 return this.processFunction(stmt);
 
@@ -327,6 +341,54 @@ export class LLVMCodeGen {
                 this.emit.push(`store ${info.ty} ${val}, ptr ${info.ptr}`);
                 return val;
             }
+
+            case "StructInstantiation": {
+                const struct = this.structs.get(expr.structName)!;
+                const structType = `%struct.${expr.structName}`;
+                
+                const ptr = this.fresh();
+                this.emit.push(`${ptr} = alloca ${structType}`);
+                
+                for (const field of expr.fields) {
+                    const fieldIdx = struct.fields.findIndex(f => f.name === field.name);
+                    const structField = struct.fields[fieldIdx];
+                    const val = this.processExpression(field.value);
+                    const fieldPtr = this.fresh();
+                    const fieldType = this.toLLVMType(structField.type);
+                    
+                    this.emit.push(`${fieldPtr} = getelementptr inbounds ${structType}, ptr ${ptr}, i32 0, i32 ${fieldIdx}`);
+                    this.emit.push(`store ${fieldType} ${val}, ptr ${fieldPtr}`);
+                }
+                
+                const res = this.fresh();
+                this.emit.push(`${res} = load ${structType}, ptr ${ptr}`);
+                return res;
+            }
+
+            case "MemberAccess": {
+                if (expr.object.type === "Identifier") {
+                    const info = this.locals.get(expr.object.name);
+                    if (info && info.ty.startsWith("%struct.")) {
+                        const structName = info.ty.replace("%struct.", "");
+                        const struct = this.structs.get(structName)!;
+                        const fieldIdx = struct.fields.findIndex(f => f.name === expr.member);
+                        const field = struct.fields[fieldIdx];
+                        const fieldType = this.toLLVMType(field.type);
+                        
+                        const fieldPtr = this.fresh();
+                        this.emit.push(`${fieldPtr} = getelementptr inbounds ${info.ty}, ptr ${info.ptr}, i32 0, i32 ${fieldIdx}`);
+                        
+                        const res = this.fresh();
+                        this.emit.push(`${res} = load ${fieldType}, ptr ${fieldPtr}`);
+                        return res;
+                    }
+                }
+                
+                error({
+                    code: ErrorCode.TYPE_MISMATCH,
+                    reason: "Member access only implemented for variables for now"
+                });
+            }
         }
     } 
 
@@ -365,7 +427,7 @@ export class LLVMCodeGen {
         return "";
     }
 
-    private toLLVMType(t: TypeNode): LLVMType {
+    private toLLVMType(t: TypeNode): string {
         if (t.kind !== "SimpleType")
             error({
                 code: ErrorCode.ILLEGAL_RETURN_TYPE,
@@ -382,6 +444,9 @@ export class LLVMCodeGen {
             case "string":
                 return "ptr";
             default:
+                if (this.structs.has(t.name)) {
+                    return `%struct.${t.name}`;
+                }
 
                 error({
                     code: ErrorCode.ILLEGAL_RETURN_TYPE,

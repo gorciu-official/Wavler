@@ -5,8 +5,11 @@ import type {
     ForStatement,
     FunctionDeclaration,
     IfExpression,
+    MemberAccess,
     ReturnStatement,
     Statement,
+    StructDeclaration,
+    StructInstantiation,
     TypeNode,
     VariableDeclaration,
     WhileStatement,
@@ -46,6 +49,7 @@ export class SemanticAnalyzer {
     private global = new Scope(null);
     private current = this.global;
     private insideFunction = false;
+    private structs = new Map<string, StructDeclaration>();
 
     analyze(program: Statement[]) {
         if (!this.global.resolve("true")) {
@@ -77,7 +81,7 @@ export class SemanticAnalyzer {
     }
 
     visitStatement(stmt: Statement): boolean {
-        if (![ "EmptyStatement", "FunctionDeclaration", "ExternFunctionDeclaration" ].includes(stmt.type) && !this.insideFunction)
+        if (![ "EmptyStatement", "FunctionDeclaration", "ExternFunctionDeclaration", "StructDeclaration" ].includes(stmt.type) && !this.insideFunction)
             error({
                 code: ErrorCode.STATEMENT_ILLEGAL_OUTSIDE_A_FUNCTION,
                 reason: `Statement type "${stmt.type}" cannot be used outside a function`
@@ -89,6 +93,9 @@ export class SemanticAnalyzer {
 
             case "ExternFunctionDeclaration":
                 return this.visitExternFunction(stmt);
+
+            case "StructDeclaration":
+                return this.visitStructDeclaration(stmt);
 
             case "VariableDeclaration":
                 return this.visitVar(stmt);
@@ -236,7 +243,7 @@ export class SemanticAnalyzer {
         }
 
         // SimpleType
-        if (!allowed_types.includes(tp.name)) 
+        if (!allowed_types.includes(tp.name) && !this.structs.has(tp.name)) 
             error({
                 code: ErrorCode.UNKNOWN_TYPE,
                 reason: `Unknown type: ${tp.name}`,
@@ -244,6 +251,22 @@ export class SemanticAnalyzer {
                     ? `Type "${tp.name}" is one of TypeScript types which we do not implement. Please change your type to one of supported ones: ${allowed_types.join(',')}`
                     : undefined
             }) 
+    }
+
+    visitStructDeclaration(stmt: StructDeclaration): boolean {
+        if (this.structs.has(stmt.name)) {
+            error({
+                code: ErrorCode.ALREADY_EXISTS,
+                reason: `Struct ${stmt.name} already exists`,
+            });
+        }
+
+        for (const field of stmt.fields) {
+            this.validateType(field.type);
+        }
+
+        this.structs.set(stmt.name, stmt);
+        return false;
     }
 
     visitExternFunction(fn: ExternFunctionDeclaration): boolean {
@@ -405,6 +428,75 @@ export class SemanticAnalyzer {
                 }
 
                 return sym.type;
+            }
+
+            case "MemberAccess": {
+                const objType = this.visitExpression(expr.object);
+                if (objType?.kind !== "SimpleType") {
+                    error({
+                        code: ErrorCode.TYPE_MISMATCH,
+                        reason: "Member access only allowed on simple types (structs)",
+                    });
+                }
+
+                const struct = this.structs.get(objType!.name);
+                if (!struct) {
+                    error({
+                        code: ErrorCode.TYPE_MISMATCH,
+                        reason: `Type ${objType!.name} is not a struct`,
+                    });
+                }
+
+                const field = struct!.fields.find((f) => f.name === expr.member);
+                if (!field) {
+                    error({
+                        code: ErrorCode.UNDEFINED_VARIABLE,
+                        reason: `Field ${expr.member} does not exist in struct ${objType!.name}`,
+                    });
+                }
+
+                return field!.type;
+            }
+
+            case "StructInstantiation": {
+                const struct = this.structs.get(expr.structName);
+                if (!struct) {
+                    error({
+                        code: ErrorCode.UNKNOWN_TYPE,
+                        reason: `Unknown struct: ${expr.structName}`,
+                    });
+                }
+
+                if (expr.fields.length !== struct!.fields.length) {
+                    error({
+                        code: ErrorCode.TYPE_MISMATCH,
+                        reason: `Expected ${struct!.fields.length} fields, got ${expr.fields.length}`,
+                    });
+                }
+
+                for (const field of expr.fields) {
+                    const structField = struct!.fields.find((f) => f.name === field.name);
+                    if (!structField) {
+                        error({
+                            code: ErrorCode.UNDEFINED_VARIABLE,
+                            reason: `Field ${field.name} does not exist in struct ${expr.structName}`,
+                        });
+                    }
+
+                    const valType = this.visitExpression(field.value);
+                    if (
+                        valType?.kind === "SimpleType" &&
+                        structField!.type.kind === "SimpleType" &&
+                        valType.name !== structField!.type.name
+                    ) {
+                        error({
+                            code: ErrorCode.TYPE_MISMATCH,
+                            reason: `Field ${field.name} type mismatch: expected ${structField!.type.name}, got ${valType.name}`,
+                        });
+                    }
+                }
+
+                return { kind: "SimpleType", name: expr.structName };
             }
         }
     }

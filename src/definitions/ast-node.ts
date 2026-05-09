@@ -53,6 +53,18 @@ export interface IfExpression {
     elseBranch: Statement[] | null;
 }
 
+export interface MemberAccess {
+    type: "MemberAccess";
+    object: Expression;
+    member: string;
+}
+
+export interface StructInstantiation {
+    type: "StructInstantiation";
+    structName: string;
+    fields: { name: string; value: Expression }[];
+}
+
 export type Expression =
     | NumberLiteral
     | StringLiteral
@@ -60,11 +72,20 @@ export type Expression =
     | BinaryExpression
     | AssignmentExpression
     | CallExpression
-    | IfExpression;
+    | IfExpression
+    | MemberAccess
+    | StructInstantiation;
+
+export interface StructDeclaration {
+    type: "StructDeclaration";
+    name: string;
+    fields: { name: string; type: TypeNode }[];
+}
 
 export type Statement =
     | FunctionDeclaration
     | ExternFunctionDeclaration
+    | StructDeclaration
     | ReturnStatement
     | ExpressionStatement
     | VariableDeclaration
