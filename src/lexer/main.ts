@@ -69,6 +69,7 @@ export class Lexer {
     public main(code: string) {
         let escaping = false;  
         let last_line = '';
+        let multiline_comment = false;
         
         for (const line of code.split('\n')) {
 
@@ -82,12 +83,32 @@ export class Lexer {
             });
         }
 
-        this.pushLineTerminator();
+        if (!multiline_comment) {
+            this.pushLineTerminator();
+        }
 
         let i = 0;
 
         while (i < line.length) {
+            if (multiline_comment) {
+                if (line[i] == '*' && line[i + 1] == '/') {
+                    multiline_comment = false;
+                    i += 2;
+                } else {
+                    i++;
+                }
+                continue;
+            }
+
             const char = line[i];
+
+            if (char == '/' && line[i + 1] == '/') {
+                break;
+            } else if (char == '/' && line[i + 1] == '*') {
+                multiline_comment = true;
+                i += 2;
+                continue;
+            }
 
             if (this.current_token?.type == TokenType.STRING) {
                 const escape_map: Record<string, string> = {
@@ -217,6 +238,15 @@ export class Lexer {
                 code: ErrorCode.UNTERMINATED_STRING_LITERAL,
                 reason: "Unterminated string literal",
                 line: last_line
+            });
+        }
+
+        if (multiline_comment) {
+            error({
+                code: ErrorCode.UNTERMINATED_COMMENT,
+                reason: "Unterminated comment",
+                line: last_line,
+                help: 'Add "*/" to the end of your comment' 
             });
         }
     }
