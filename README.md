@@ -1,6 +1,6 @@
 # Wavler
 
-Wavler is pretty must just my first real attempt to make a programming language. It currently contains no AI code (that may change lmao).
+Wavler is pretty must just my first real attempt to make a programming language. It currently contains little to very little AI code (mostly bug fixes and codegen).
 
 **How to run?**
 
@@ -16,4 +16,4 @@ If you want to pass the file instead of random testing code, pass it as fifth ar
 
 **Roadmap**
 
-I decided to place it [here](docs/ROADMAP.md).
+I used to have it, but now I do things randomly, so I don't have one.
