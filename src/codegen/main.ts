@@ -256,6 +256,10 @@ export class LLVMCodeGen {
     }
 
     private processStringLiteral(expr: StringLiteral, targetType: TypeNode | null): string {
+        if (this.strings.has(expr.value)) {
+            return this.strings.get(expr.value)!;
+        }
+
         const id = `@.str.${this.strings.size}`;
         this.strings.set(expr.value, id);
 
