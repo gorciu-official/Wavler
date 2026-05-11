@@ -1,6 +1,7 @@
 import {
     ASTNode,
     BinaryOperator,
+    CaseClause,
     Expression,
     ExpressionStatement,
     ExternFunctionDeclaration,

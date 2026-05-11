@@ -6,6 +6,7 @@ import type {
     IfExpression,
     TypeNode,
     StructDeclaration,
+    StringLiteral,
 } from "../definitions/ast-node.ts";
 
 import { error, ErrorCode, warn, WarnCode } from "../logging.ts";
@@ -262,8 +263,7 @@ export class LLVMCodeGen {
                 for (let i = 0; i < stmt.cases.length; i++) {
                     const c = stmt.cases[i];
                     ir += `\n${caseLabels[i]}:\n`;
-                    
-                    let caseMatchCode = "";
+
                     for (const val of c.values) {
                         const valStr = this.processExpression(val);
                         const valCode = this.emit.splice(0).join("\n    ");
@@ -272,7 +272,7 @@ export class LLVMCodeGen {
                         const matchTmp = this.fresh();
                         ir += `    ${matchTmp} = icmp eq ${discType} ${discriminant}, ${valStr}\n`;
                         
-                        const nextCheck = this.fresh();
+                        this.fresh();
                         const isLastVal = val === c.values[c.values.length - 1];
                         const nextLabel = isLastVal ? (caseLabels[i+1] || endLabel) : `switch_${id}_case_${i}_val_${c.values.indexOf(val) + 1}`;
                         
@@ -486,9 +486,9 @@ export class LLVMCodeGen {
                         return tmp;
 
                 }
-                
-                return tmp;
-            }
+
+                // stupid deno lint
+            }   /** falls through */
 
             case "AssignmentExpression": {
                 const info = this.locals.get(expr.left.name);

@@ -1,4 +1,6 @@
 import type {
+BreakStatement,
+    ContinueStatement,
     Expression,
     ExternFunctionDeclaration,
     ForOfStatement,
@@ -8,6 +10,7 @@ import type {
     ReturnStatement,
     Statement,
     StructDeclaration,
+    SwitchStatement,
     TypeNode,
     VariableDeclaration,
     WhileStatement,
@@ -162,7 +165,7 @@ export class SemanticAnalyzer {
         return false;
     }
 
-    visitSwitch(stmt: any): boolean {
+    visitSwitch(stmt: SwitchStatement): boolean {
         this.visitExpression(stmt.discriminant);
         this.switchDepth++;
         for (const c of stmt.cases) {
@@ -179,7 +182,7 @@ export class SemanticAnalyzer {
         return false;
     }
 
-    visitBreak(_stmt: any): boolean {
+    visitBreak(_stmt: BreakStatement): boolean {
         if (this.loopDepth === 0 && this.switchDepth === 0) {
             error({
                 code: ErrorCode.ILLEGAL_IDENTIFIER, 
@@ -189,7 +192,7 @@ export class SemanticAnalyzer {
         return false;
     }
 
-    visitContinue(_stmt: any): boolean {
+    visitContinue(_stmt: ContinueStatement): boolean {
         if (this.loopDepth === 0 && this.switchDepth === 0) {
             error({
                 code: ErrorCode.ILLEGAL_IDENTIFIER,
