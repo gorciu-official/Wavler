@@ -12,6 +12,7 @@ export class Lexer {
         const keywords: Record<string, TokenType> = {
             "if": TokenType.IF_KEYWORD, "else": TokenType.ELSE_KEYWORD,
             "switch": TokenType.SWITCH_KEYWORD, "case": TokenType.CASE_KEYWORD,
+            "break": TokenType.BREAK_KEYWORD, "continue": TokenType.CONTINUE_KEYWORD,
             "function": TokenType.FUNCTION_KEYWORD, "return": TokenType.RETURN_KEYWORD,
             "let": TokenType.LET_KEYWORD, "const": TokenType.CONST_KEYWORD,
             "for": TokenType.FOR_KEYWORD, "while": TokenType.WHILE_KEYWORD,
@@ -198,7 +199,12 @@ export class Lexer {
                 this.pushSingle({ type: TokenType.DOT, value: ".", line });
                 break;
             case '=':
-                this.pushSingle({ type: TokenType.ASSIGN_SIGN, value: "=", line });
+                if (line[i + 1] == '=') {
+                    i++;
+                    this.pushSingle({ type: TokenType.EQUAL_SIGN, value: "==", line });
+                } else {
+                    this.pushSingle({ type: TokenType.ASSIGN_SIGN, value: "=", line });
+                }
                 break;
 
             case '>': {

@@ -48,6 +48,8 @@ export class SemanticAnalyzer {
     private current = this.global;
     private insideFunction = false;
     private currentReturnType: TypeNode | null = null;
+    private loopDepth = 0;
+    private switchDepth = 0;
     private structs = new Map<string, StructDeclaration>([
         ["string", {
             type: "StructDeclaration",
@@ -127,6 +129,15 @@ export class SemanticAnalyzer {
             case "ForOfStatement":
                 return this.visitForOf(stmt);
 
+            case "SwitchStatement":
+                return this.visitSwitch(stmt);
+
+            case "BreakStatement":
+                return this.visitBreak(stmt);
+
+            case "ContinueStatement":
+                return this.visitContinue(stmt);
+
             case "EmptyStatement":
                 return false;
 
@@ -140,13 +151,52 @@ export class SemanticAnalyzer {
     visitWhile(stmt: WhileStatement): boolean {
         this.visitExpression(stmt.condition);
 
+        this.loopDepth++;
         this.pushScope();
         for (const s of stmt.body) {
             this.visitStatement(s);
         }
         this.popScope();
+        this.loopDepth--;
 
         return false;
+    }
+
+    visitSwitch(stmt: any): boolean {
+        this.visitExpression(stmt.discriminant);
+        this.switchDepth++;
+        for (const c of stmt.cases) {
+            for (const val of c.values) {
+                this.visitExpression(val);
+            }
+            this.pushScope();
+            for (const s of c.body) {
+                this.visitStatement(s);
+            }
+            this.popScope();
+        }
+        this.switchDepth--;
+        return false;
+    }
+
+    visitBreak(_stmt: any): boolean {
+        if (this.loopDepth === 0 && this.switchDepth === 0) {
+            error({
+                code: ErrorCode.ILLEGAL_IDENTIFIER, 
+                reason: "break statement outside of loop or switch"
+            });
+        }
+        return false;
+    }
+
+    visitContinue(_stmt: any): boolean {
+        if (this.loopDepth === 0 && this.switchDepth === 0) {
+            error({
+                code: ErrorCode.ILLEGAL_IDENTIFIER,
+                reason: "continue statement outside of loop or switch"
+            });
+        }
+        return true;
     }
 
     visitIfExpression(expr: IfExpression): TypeNode | null {
@@ -197,9 +247,11 @@ export class SemanticAnalyzer {
             this.visitExpression(stmt.update);
         }
 
+        this.loopDepth++;
         for (const s of stmt.body) {
             this.visitStatement(s);
         }
+        this.loopDepth--;
 
         this.popScope();
 
@@ -414,7 +466,7 @@ export class SemanticAnalyzer {
                     });
                 }
 
-                if (["<", ">"].includes(expr.operator)) {
+                if (["<", ">", "=="].includes(expr.operator)) {
                     return { kind: "SimpleType", name: "boolean" };
                 }
 

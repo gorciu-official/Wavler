@@ -27,6 +27,8 @@ export class LLVMCodeGen {
         }]
     ]);
     private emit: string[] = [];
+    private breakLabels: string[] = [];
+    private continueLabels: string[] = [];
 
     constructor(private body: Statement[]) {
         this.gatherSignatures();
@@ -158,6 +160,9 @@ export class LLVMCodeGen {
                 const bodyLabel = `while_body_${id}`;
                 const endLabel = `while_end_${id}`;
 
+                this.continueLabels.push(condLabel);
+                this.breakLabels.push(endLabel);
+
                 let ir = `br label %${condLabel}\n`;
 
                 ir += `\n${condLabel}:\n`;
@@ -174,6 +179,10 @@ export class LLVMCodeGen {
                 ir += `    br label %${condLabel}\n`;
 
                 ir += `\n${endLabel}:\n`;
+
+                this.continueLabels.pop();
+                this.breakLabels.pop();
+
                 return ir;
             }
 
@@ -183,6 +192,9 @@ export class LLVMCodeGen {
                 const bodyLabel = `for_body_${id}`;
                 const updateLabel = `for_update_${id}`;
                 const endLabel = `for_end_${id}`;
+
+                this.continueLabels.push(updateLabel);
+                this.breakLabels.push(endLabel);
 
                 let ir = "";
 
@@ -219,7 +231,98 @@ export class LLVMCodeGen {
                 ir += `    br label %${condLabel}\n`;
 
                 ir += `\n${endLabel}:\n`;
+
+                this.continueLabels.pop();
+                this.breakLabels.pop();
+
                 return ir;
+            }
+
+            case "SwitchStatement": {
+                const id = this.tmpId++;
+                const endLabel = `switch_end_${id}`;
+                const discriminant = this.processExpression(stmt.discriminant);
+                const discCode = this.emit.splice(0).join("\n    ");
+                const discType = this.toLLVMType(this.getTypeOfExpression(stmt.discriminant));
+
+                this.breakLabels.push(endLabel);
+
+                let ir = discCode ? `${discCode}\n    ` : "";
+                
+                const caseLabels: string[] = [];
+                const bodyLabels: string[] = [];
+
+                for (let i = 0; i < stmt.cases.length; i++) {
+                    caseLabels.push(`switch_${id}_case_check_${i}`);
+                    bodyLabels.push(`switch_${id}_case_body_${i}`);
+                }
+
+                ir += `br label %${caseLabels[0] || endLabel}\n`;
+
+                for (let i = 0; i < stmt.cases.length; i++) {
+                    const c = stmt.cases[i];
+                    ir += `\n${caseLabels[i]}:\n`;
+                    
+                    let caseMatchCode = "";
+                    for (const val of c.values) {
+                        const valStr = this.processExpression(val);
+                        const valCode = this.emit.splice(0).join("\n    ");
+                        if (valCode) ir += `    ${valCode}\n`;
+                        
+                        const matchTmp = this.fresh();
+                        ir += `    ${matchTmp} = icmp eq ${discType} ${discriminant}, ${valStr}\n`;
+                        
+                        const nextCheck = this.fresh();
+                        const isLastVal = val === c.values[c.values.length - 1];
+                        const nextLabel = isLastVal ? (caseLabels[i+1] || endLabel) : `switch_${id}_case_${i}_val_${c.values.indexOf(val) + 1}`;
+                        
+                        ir += `    br i1 ${matchTmp}, label %${bodyLabels[i]}, label %${nextLabel}\n`;
+                        
+                        if (!isLastVal) {
+                            ir += `\n${nextLabel}:\n`;
+                        }
+                    }
+
+                    ir += `\n${bodyLabels[i]}:\n`;
+                    
+                    // continue in switch means fallthrough to next case body
+                    const nextBodyLabel = bodyLabels[i+1] || endLabel;
+                    this.continueLabels.push(nextBodyLabel);
+
+                    for (const s of c.body) {
+                        const out = this.processStatement(s);
+                        if (out) ir += `    ${out}\n`;
+                    }
+                    ir += `    br label %${endLabel}\n`;
+                    
+                    this.continueLabels.pop();
+                }
+
+                ir += `\n${endLabel}:\n`;
+                this.breakLabels.pop();
+                return ir;
+            }
+
+            case "BreakStatement": {
+                const label = this.breakLabels[this.breakLabels.length - 1];
+                if (!label) {
+                    error({
+                        code: ErrorCode.ILLEGAL_IDENTIFIER,
+                        reason: "break outside of loop or switch"
+                    });
+                }
+                return `br label %${label}`;
+            }
+
+            case "ContinueStatement": {
+                const label = this.continueLabels[this.continueLabels.length - 1];
+                if (!label) {
+                    error({
+                        code: ErrorCode.ILLEGAL_IDENTIFIER,
+                        reason: "continue outside of loop or switch"
+                    });
+                }
+                return `br label %${label}`;
             }
 
             case "EmptyStatement":
@@ -368,6 +471,10 @@ export class LLVMCodeGen {
     
                     case ">":
                         this.emit.push(`${tmp} = icmp sgt ${llvmType} ${l}, ${r}`);
+                        return tmp;
+
+                    case "==":
+                        this.emit.push(`${tmp} = icmp eq ${llvmType} ${l}, ${r}`);
                         return tmp;
 
                     case "<<":

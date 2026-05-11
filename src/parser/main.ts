@@ -32,6 +32,10 @@ export class Parser {
         return this.tokens[this.pos] || this.tokens[this.tokens.length - 1];
     }
 
+    private peekNext(): Token {
+        return this.tokens[this.pos + 1] || this.tokens[this.tokens.length - 1];
+    }
+
     private advance(): Token {
         return this.tokens[this.pos++];
     }
@@ -88,6 +92,15 @@ export class Parser {
         switch (t.type) {
             case TokenType.IF_KEYWORD:
                 return { type: "ExpressionStatement", expression: this.parseIfExpression() };
+
+            case TokenType.SWITCH_KEYWORD:
+                return this.parseSwitchStatement();
+
+            case TokenType.BREAK_KEYWORD:
+                return this.parseBreakStatement();
+
+            case TokenType.CONTINUE_KEYWORD:
+                return this.parseContinueStatement();
 
             case TokenType.EXTERN_KEYWORD:
                 return this.parseExternFunction();
@@ -254,6 +267,49 @@ export class Parser {
             thenBranch,
             elseBranch
         };
+    }
+
+    private parseSwitchStatement(): Statement {
+        this.advance(); // switch
+        const discriminant = this.parseExpression(0);
+        this.expect(TokenType.LBRACE, "Expected '{' after switch expression");
+
+        const cases: CaseClause[] = [];
+        while (this.peek().type !== TokenType.RBRACE) {
+            this.expect(TokenType.CASE_KEYWORD, "Expected 'case'");
+            const values: Expression[] = [];
+            do {
+                values.push(this.parseExpression(0));
+            } while (this.match(TokenType.COMMA));
+
+            this.expect(TokenType.COLON, "Expected ':' after case values");
+
+            const body: Statement[] = [];
+            while (this.peek().type !== TokenType.CASE_KEYWORD && this.peek().type !== TokenType.RBRACE) {
+                body.push(this.parseStatement());
+            }
+            cases.push({ values, body });
+        }
+
+        this.expect(TokenType.RBRACE, "Expected '}' after switch cases");
+
+        return {
+            type: "SwitchStatement",
+            discriminant,
+            cases
+        };
+    }
+
+    private parseBreakStatement(): Statement {
+        this.advance(); // break
+        this.match(TokenType.SEMICOLON);
+        return { type: "BreakStatement" };
+    }
+
+    private parseContinueStatement(): Statement {
+        this.advance(); // continue
+        this.match(TokenType.SEMICOLON);
+        return { type: "ContinueStatement" };
     }
 
     private parseBinding(): { name: string; const: boolean } {
@@ -563,7 +619,7 @@ export class Parser {
                 return { type: "StringLiteral", value: token.value };
 
             case TokenType.IDENTIFIER: {
-                if (this.peek().type === TokenType.LBRACE) {
+                if (this.peek().type === TokenType.LBRACE && this.peekNext().type !== TokenType.CASE_KEYWORD) {
                     this.advance(); // {
                     const fields: { name: string; value: Expression }[] = [];
 
@@ -689,6 +745,9 @@ export class Parser {
             case TokenType.LESS_THAN:
             case TokenType.GREATER_THAN:
                 return { left: 30, right: 31 };
+
+            case TokenType.EQUAL_SIGN:
+                return { left: 25, right: 26 };
 
             case TokenType.BITSHIFT_LEFT:
             case TokenType.BITSHIFT_RIGHT:

@@ -35,6 +35,7 @@ export type BinaryOperator =
     | "-"
     | "*"
     | "/"
+    | "=="
     | "<"
     | ">"
     | "<<"
@@ -44,6 +45,25 @@ export interface AssignmentExpression {
     type: "AssignmentExpression";
     left: Identifier;
     right: Expression;
+}
+
+export interface BreakStatement {
+    type: "BreakStatement";
+}
+
+export interface ContinueStatement {
+    type: "ContinueStatement";
+}
+
+export interface CaseClause {
+    values: Expression[];
+    body: Statement[];
+}
+
+export interface SwitchStatement {
+    type: "SwitchStatement";
+    discriminant: Expression;
+    cases: CaseClause[];
 }
 
 export interface IfExpression {
@@ -92,6 +112,9 @@ export type Statement =
     | WhileStatement
     | ForStatement
     | ForOfStatement
+    | SwitchStatement
+    | BreakStatement
+    | ContinueStatement
     | { type: "EmptyStatement" };
 
 export type SimpleTypeNode = { kind: "SimpleType"; name: string };
