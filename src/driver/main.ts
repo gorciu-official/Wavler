@@ -1,6 +1,7 @@
 import { Lexer } from "../lexer/main.ts";
 import { Parser } from "../parser/main.ts";
 import { SemanticAnalyzer } from "../semantic-analyzer/main.ts";
+import { TypeProcessor } from "../type-processor/main.ts";
 import { LLVMCodeGen } from "../codegen/main.ts";
 import { error, ErrorCode } from "../logging.ts";
 
@@ -92,10 +93,13 @@ export default async function driver_main() {
         const parser = new Parser(tokens);
         const ast = parser.parse();
 
-        const semantic = new SemanticAnalyzer();
-        semantic.analyze(ast);
+        const typeProcessor = new TypeProcessor(ast);
+        const processedAst = typeProcessor.process();
 
-        const codegen = new LLVMCodeGen(ast);
+        const semantic = new SemanticAnalyzer();
+        semantic.analyze(processedAst);
+
+        const codegen = new LLVMCodeGen(processedAst);
         const llvmIR = codegen.generate();
 
         const tmp = await createTempFile();

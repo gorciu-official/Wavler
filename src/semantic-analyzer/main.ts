@@ -21,7 +21,7 @@ import { error, ErrorCode } from "../logging.ts";
 const allowed_types: string[] = [
     'i64', 'i32', 'i16', 'i8',
     'u64', 'u32', 'u16', 'u8',
-    'cstring', 'void', 'f64', 'f32', 'boolean'
+    'cstring', 'void', 'f64', 'f32', 'boolean', 'string'
 ];
 const typescript_types: string[] = [
     'number', 'object'
@@ -65,6 +65,18 @@ export class SemanticAnalyzer {
     ]);
 
     analyze(program: Statement[]) {
+        for (const stmt of program) {
+            if (stmt.type === "StructDeclaration") {
+                if (this.structs.has(stmt.name)) {
+                    error({
+                        code: ErrorCode.ALREADY_EXISTS,
+                        reason: `Struct ${stmt.name} already exists`,
+                    });
+                }
+                this.structs.set(stmt.name, stmt);
+            }
+        }
+        
         if (!this.global.resolve("true")) {
             this.global.declare({
                 name: "true",
@@ -330,18 +342,10 @@ export class SemanticAnalyzer {
     }
 
     visitStructDeclaration(stmt: StructDeclaration): boolean {
-        if (this.structs.has(stmt.name)) {
-            error({
-                code: ErrorCode.ALREADY_EXISTS,
-                reason: `Struct ${stmt.name} already exists`,
-            });
-        }
-
         for (const field of stmt.fields) {
             this.validateType(field.type);
         }
 
-        this.structs.set(stmt.name, stmt);
         return false;
     }
 

@@ -17,21 +17,20 @@ export class LLVMCodeGen {
     private locals = new Map<string, { ptr: string, ty: string, typeNode: TypeNode }>(); // variable -> { alloca name, type, original type }
     private strings = new Map<string, string>(); // content -> global name
     private functionSignatures = new Map<string, { params: TypeNode[], returnType: TypeNode }>();
-    private structs = new Map<string, StructDeclaration>([
-        ["string", {
+    private structs = new Map<string, StructDeclaration>();
+    private emit: string[] = [];
+    private breakLabels: string[] = [];
+    private continueLabels: string[] = [];
+
+    constructor(private body: Statement[]) {
+        this.structs.set("string", {
             type: "StructDeclaration",
             name: "string",
             fields: [
                 { name: "data", type: { kind: "SimpleType", name: "cstring" } },
                 { name: "size", type: { kind: "SimpleType", name: "i64" } }
             ]
-        }]
-    ]);
-    private emit: string[] = [];
-    private breakLabels: string[] = [];
-    private continueLabels: string[] = [];
-
-    constructor(private body: Statement[]) {
+        });
         this.gatherSignatures();
     }
 
@@ -505,15 +504,21 @@ export class LLVMCodeGen {
             }
 
             case "StructInstantiation": {
-                const struct = this.structs.get(expr.structName)!;
+                const struct = this.structs.get(expr.structName);
+                if (!struct) {
+                     error({
+                        code: ErrorCode.UNKNOWN_TYPE,
+                        reason: `Struct ${expr.structName} not defined in codegen`
+                    });
+                }
                 const structType = `%struct.${expr.structName}`;
                 
                 const ptr = this.fresh();
                 this.emit.push(`${ptr} = alloca ${structType}`);
                 
                 for (const field of expr.fields) {
-                    const fieldIdx = struct.fields.findIndex(f => f.name === field.name);
-                    const structField = struct.fields[fieldIdx];
+                    const fieldIdx = struct!.fields.findIndex(f => f.name === field.name);
+                    const structField = struct!.fields[fieldIdx];
                     const val = this.processExpression(field.value, structField.type);
                     const fieldPtr = this.fresh();
                     const fieldType = this.toLLVMType(structField.type);
@@ -595,26 +600,25 @@ export class LLVMCodeGen {
                 code: ErrorCode.ILLEGAL_RETURN_TYPE,
                 reason: "Only simple types supported"
             });
-        switch (t.name) {
-            case "i64": case "i32": case "i16":
-            case "i8": case "f64": case "f32":
-            case "void": case "u64": case "u32":
-            case "u16": case "u8":
-                return t.name;
-            case "boolean":
-                return "i1";
-            case "cstring":
-                return "ptr";
-            default:
-                if (this.structs.has(t.name)) {
-                    return `%struct.${t.name}`;
-                }
-
-                error({
-                    code: ErrorCode.ILLEGAL_RETURN_TYPE,
-                    reason: `Type ${t.name} not implemented in codegen`
-                });
+        
+        const name = t.name;
+        
+        // Handle mapped types from TypeProcessor
+        if (["i64", "i32", "i16", "i8", "f64", "f32", "i1", "void", "u64", "u32", "u16", "u8"].includes(name)) {
+            return name;
         }
+
+        if (name === "cstring") return "ptr";
+
+        if (name === "string" || this.structs.has(name)) {
+            return `%struct.${name}`;
+        }
+
+        error({
+            code: ErrorCode.ILLEGAL_RETURN_TYPE,
+            reason: `Type ${name} not implemented in codegen`
+        });
+        return ""; // unreachable
     }
 
     generate(): string {
