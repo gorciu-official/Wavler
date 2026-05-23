@@ -4,7 +4,7 @@ Wavler is pretty must just my first real attempt to make a programming language.
 
 **How to run?**
 
-`deno run -A src/main.ts` (you may tighten permissions, --allow-read should be enough)
+`deno run -A src/main.ts` (you may tighten permissions, --allow-read and --allow-run should be enough)
 
 If you want to pass the file instead of random testing code, pass it as fifth argument.
 

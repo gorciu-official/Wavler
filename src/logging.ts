@@ -1,6 +1,9 @@
 import process from "node:process";
 
 export enum ErrorCode {
+    // --- driver
+    INVALID_CLI_USAGE,
+
     // --- lexer
     MULTILINE_NON_TEMPLATE_STRING,
     UNTERMINATED_STRING_LITERAL,
