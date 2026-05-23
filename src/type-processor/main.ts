@@ -2,7 +2,6 @@ import { Statement, StructDeclaration, TypeNode } from "../definitions/ast-node.
 
 export class TypeProcessor {
     private ast: Statement[];
-    private unionCounter = 0;
     private structs = new Map<string, StructDeclaration>();
 
     constructor(ast: Statement[]) {
@@ -13,7 +12,6 @@ export class TypeProcessor {
         let processed = this.ast;
 
         processed = this.mergeStructs(processed);
-        processed = this.processUnionTypes(processed);
         processed = this.convertToLLVMTypes(processed);
         return processed;
     }
@@ -37,31 +35,6 @@ export class TypeProcessor {
         return nodes;
     }
 
-    private processUnionTypes(nodes: Statement[]): Statement[] {
-        const newNodes: Statement[] = [];
-        for (const node of nodes) {
-            if (node.type === "StructDeclaration") {
-                for (const field of node.fields) {
-                    if (field.type.kind === "UnionType") {
-                        const unionName = `Union_${this.unionCounter++}`;
-                        const newStruct: StructDeclaration = {
-                            type: "StructDeclaration",
-                            name: unionName,
-                            fields: [
-                                { name: "type_tag", type: { kind: "SimpleType", name: "i32" } },
-                                ...field.type.types.map((t, i) => ({ name: `val${i}`, type: t }))
-                            ]
-                        };
-                        newNodes.push(newStruct);
-                        field.type = { kind: "SimpleType", name: unionName };
-                    }
-                }
-            }
-            newNodes.push(node);
-        }
-        return newNodes;
-    }
-
     private convertToLLVMTypes(nodes: Statement[]): Statement[] {
         const llvmMap: Record<string, string> = {
             "int": "i32",
@@ -78,9 +51,6 @@ export class TypeProcessor {
                 if (llvmMap[type.name]) {
                     return { kind: "SimpleType", name: llvmMap[type.name] };
                 }
-            }
-            if (type.kind === "UnionType") {
-                return { kind: "UnionType", types: type.types.map(transform) };
             }
             if (type.kind === "FunctionType") {
                 return {

@@ -192,9 +192,6 @@ export class Lexer {
             case ':':
                 this.pushSingle({ type: TokenType.COLON, value: ":", line });
                 break;
-            case '|':
-                this.pushSingle({ type: TokenType.PIPE, value: "|", line });
-                break;
 
             case '.':
                 this.pushSingle({ type: TokenType.DOT, value: ".", line });

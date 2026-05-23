@@ -556,18 +556,7 @@ export class Parser {
     }
    
     private parseType(): TypeNode {
-        const left = this.parsePrimaryType();
-
-        const types: TypeNode[] = [left];
-
-        while (this.peek().type === TokenType.PIPE) {
-            this.advance();
-            types.push(this.parsePrimaryType());
-        }
-
-        return types.length === 1
-            ? left
-            : { kind: "UnionType", types };
+        return this.parsePrimaryType();
     }
 
     private parsePrimaryType(): TypeNode {

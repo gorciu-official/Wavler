@@ -304,12 +304,6 @@ export class SemanticAnalyzer {
         if (i == 15)
             throw new Error("Type depth limit reached");
 
-        if (tp.kind == "UnionType") {
-            for (const subtype of tp.types)
-                this.validateType(subtype, i + 1);
-            return;
-        }
-
         if (tp.kind == "FunctionType") {
             for (const param of tp.params)
                 this.validateType(param, i + 1);
@@ -617,7 +611,6 @@ export class SemanticAnalyzer {
 
     private typeName(tp: TypeNode): string {
         if (tp.kind === "SimpleType") return tp.name;
-        if (tp.kind === "UnionType") return tp.types.map((t) => this.typeName(t)).join(" | ");
         if (tp.kind === "FunctionType") {
             return `function(${
                 tp.params.map((t) => this.typeName(t)).join(", ")
@@ -700,7 +693,7 @@ export class SemanticAnalyzer {
         if (fn.returnType.kind !== "SimpleType") {
             error({
                 code: ErrorCode.ILLEGAL_RETURN_STATEMENT,
-                reason: `Returning union/function type from functions is currently not allowed.`,
+                reason: `Returning function type from functions is currently not allowed.`,
             });
         }
 

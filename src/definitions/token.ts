@@ -3,7 +3,7 @@ export enum TokenType {
     LPAREN, RPAREN, 
 
     COMMA, SEMICOLON, 
-    COLON, PIPE,
+    COLON,
 
     ASSIGN_SIGN,
     EQUAL_SIGN,

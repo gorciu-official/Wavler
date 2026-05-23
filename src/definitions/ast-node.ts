@@ -128,8 +128,7 @@ export type FunctionTypeNode = {
 
 export type TypeNode =
     | SimpleTypeNode
-    | FunctionTypeNode
-    | { kind: "UnionType"; types: TypeNode[] };
+    | FunctionTypeNode;
 
 export interface FunctionDeclaration {
     type: "FunctionDeclaration";
