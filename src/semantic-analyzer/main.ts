@@ -314,6 +314,19 @@ export class SemanticAnalyzer {
                     ? `Type "${tp.name}" is one of TypeScript types which we do not implement. Please change your type to one of supported ones: ${allowed_types.join(',')}`
                     : undefined
             }) 
+
+        // structs 
+        if (this.structs.has(tp.name)) {
+            const struct = this.structs.get(tp.name)!;
+            if (struct.extendsStruct && !this.structs.get(struct.extendsStruct)) 
+                error({
+                    code: ErrorCode.UNKNOWN_TYPE,
+                    reason: `Unknown struct type: ${struct.extendsStruct} (tried to extend this struct in struct ${tp.name})`,
+                    help: allowed_types.includes(struct.extendsStruct)
+                        ? 'Structs cannot extend primitive types.'
+                        : undefined
+                });
+        }
     }
 
     visitStructDeclaration(stmt: StructDeclaration): boolean {
@@ -538,14 +551,28 @@ export class SemanticAnalyzer {
 
                 return field!.type;
             }
-
+            
             case "StructInstantiation": {
-                const struct = this.structs.get(expr.structName);
+                const struct = this.structs.get(expr.structName)!;
                 if (!struct) {
                     error({
                         code: ErrorCode.UNKNOWN_TYPE,
                         reason: `Unknown struct: ${expr.structName}`,
                     });
+                }
+
+                while (struct.extendsStruct && this.structs.has(struct.extendsStruct)) {
+                    const parent = this.structs.get(struct.extendsStruct)!;
+                
+                    struct.extendsStruct = parent.extendsStruct;
+                
+                    const existing = new Set(struct.fields.map(f => f.name));
+                
+                    for (const field of parent.fields) {
+                        if (!existing.has(field.name)) {
+                            struct.fields.push(field);
+                        }
+                    }
                 }
 
                 if (expr.fields.length !== struct!.fields.length) {

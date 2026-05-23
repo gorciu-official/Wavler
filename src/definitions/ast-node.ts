@@ -99,6 +99,7 @@ export type Expression =
 export interface StructDeclaration {
     type: "StructDeclaration";
     name: string;
+    extendsStruct?: string;
     fields: { name: string; type: TypeNode }[];
 }
 

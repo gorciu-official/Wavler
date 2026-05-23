@@ -436,6 +436,13 @@ export class Parser {
             "Expected struct name"
         ) as BaseToken<TokenType.IDENTIFIER, string>).value;
 
+        let extendsStruct: string | undefined = undefined;
+        if (this.peek().type == TokenType.EXTENDS_KEYWORD) {
+            this.advance();
+
+            extendsStruct = (this.expect(TokenType.IDENTIFIER, "Expected identifier after extends keyword") as BaseToken<TokenType.IDENTIFIER, string>).value;
+        }
+
         this.expect(TokenType.LBRACE, "Expected '{' after struct name");
 
         const fields: { name: string; type: TypeNode }[] = [];
@@ -463,6 +470,7 @@ export class Parser {
             type: "StructDeclaration",
             name,
             fields,
+            extendsStruct
         };
     }
 
