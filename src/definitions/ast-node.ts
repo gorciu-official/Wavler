@@ -103,10 +103,17 @@ export interface StructDeclaration {
     fields: { name: string; type: TypeNode }[];
 }
 
+export interface TypeAliasDeclaration {
+    type: "TypeAliasDeclaration";
+    name: string;
+    base_type: string;
+}
+
 export type Statement =
     | FunctionDeclaration
     | ExternFunctionDeclaration
     | StructDeclaration
+    | TypeAliasDeclaration
     | ReturnStatement
     | ExpressionStatement
     | VariableDeclaration

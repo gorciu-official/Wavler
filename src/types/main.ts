@@ -3,24 +3,39 @@ import { Statement, StructDeclaration, TypeNode } from "../definitions/ast-node.
 export class TypeProcessor {
     private ast: Statement[];
     private structs = new Map<string, StructDeclaration>();
+    private aliases = new Map<string, string>();
 
     constructor(ast: Statement[]) {
         this.ast = ast;
     }
 
+    public getAliases(): Map<string, string> {
+        return this.aliases;
+    }
+
     public process(): Statement[] {
         let processed = this.ast;
 
+        processed = this.collectDefinitions(processed);
         processed = this.mergeStructs(processed);
         processed = this.convertToLLVMTypes(processed);
         return processed;
     }
 
-    private mergeStructs(nodes: Statement[]): Statement[] {
-        for (const node of nodes) {
-            if (node.type === "StructDeclaration") this.structs.set(node.name, node);
-        }
+    private collectDefinitions(nodes: Statement[]): Statement[] {
+        return nodes.filter(node => {
+            if (node.type === "StructDeclaration") {
+                this.structs.set(node.name, node);
+                return true;
+            } else if (node.type === "TypeAliasDeclaration") {
+                this.aliases.set(node.name, node.base_type);
+                return false;
+            }
+            return true;
+        });
+    }
 
+    private mergeStructs(nodes: Statement[]): Statement[] {
         for (const struct of this.structs.values()) {
             if (struct.extendsStruct) {
                 const parent = this.structs.get(struct.extendsStruct);
@@ -40,17 +55,29 @@ export class TypeProcessor {
             "int": "i32",
             "float": "float",
             "string": "string",
-            "cstring": "cstring",
             "boolean": "i1",
             "bool": "i1",
             "void": "void"
         };
 
+        const resolveAlias = (name: string): string => {
+            if (this.aliases.has(name)) {
+                return resolveAlias(this.aliases.get(name)!);
+            }
+            return name;
+        };
+
         const transform = (type: TypeNode): TypeNode => {
             if (type.kind === "SimpleType") {
-                if (llvmMap[type.name]) {
-                    return { kind: "SimpleType", name: llvmMap[type.name] };
+                const resolvedName = resolveAlias(type.name);
+                
+                if (llvmMap[resolvedName]) {
+                    return { kind: "SimpleType", name: llvmMap[resolvedName] };
+                } else if (Object.keys(llvmMap).some(t => resolvedName == `*${t}`)) {
+                    return { kind: "SimpleType", name: 'ptr' }
                 }
+                
+                return { kind: "SimpleType", name: resolvedName };
             }
             if (type.kind === "FunctionType") {
                 return {

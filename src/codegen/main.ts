@@ -27,7 +27,7 @@ export class LLVMCodeGen {
             type: "StructDeclaration",
             name: "string",
             fields: [
-                { name: "data", type: { kind: "SimpleType", name: "cstring" } },
+                { name: "data", type: { kind: "SimpleType", name: "*u8" } },
                 { name: "size", type: { kind: "SimpleType", name: "i64" } }
             ]
         });
@@ -341,7 +341,7 @@ export class LLVMCodeGen {
             case "NumberLiteral":
                 return { kind: "SimpleType", name: "i64" };
             case "StringLiteral":
-                return { kind: "SimpleType", name: "cstring" };
+                return { kind: "SimpleType", name: "*u8" };
             case "Identifier":
                 return this.locals.get(expr.name)?.typeNode ?? { kind: "SimpleType", name: "i64" };
             case "CallExpression":
@@ -604,11 +604,13 @@ export class LLVMCodeGen {
         const name = t.name;
         
         // Handle mapped types from TypeProcessor
-        if (["i64", "i32", "i16", "i8", "f64", "f32", "i1", "void", "u64", "u32", "u16", "u8"].includes(name)) {
+        const allowedTypes = ["i64", "i32", "i16", "i8", "f64", "f32", "i1", "void", "u64", "u32", "u16", "u8", "ptr"];
+        if (allowedTypes.includes(name)) {
             return name;
         }
 
-        if (name === "cstring") return "ptr";
+        if (allowedTypes.map((tn) => `*${tn}`).includes(name))
+            return 'ptr';
 
         if (name === "string" || this.structs.has(name)) {
             return `%struct.${name}`;
@@ -618,7 +620,6 @@ export class LLVMCodeGen {
             code: ErrorCode.ILLEGAL_RETURN_TYPE,
             reason: `Type ${name} not implemented in codegen`
         });
-        return ""; // unreachable
     }
 
     generate(): string {

@@ -21,7 +21,7 @@ import { error, ErrorCode } from "../logging.ts";
 const allowed_types: string[] = [
     'i64', 'i32', 'i16', 'i8',
     'u64', 'u32', 'u16', 'u8',
-    'cstring', 'void', 'f64', 'f32', 'boolean', 'string'
+    'void', 'f64', 'f32', 'boolean', 'string'
 ];
 const typescript_types: string[] = [
     'number', 'object'
@@ -58,11 +58,13 @@ export class SemanticAnalyzer {
             type: "StructDeclaration",
             name: "string",
             fields: [
-                { name: "data", type: { kind: "SimpleType", name: "cstring" } },
+                { name: "data", type: { kind: "SimpleType", name: "*u8" } },
                 { name: "size", type: { kind: "SimpleType", name: "i64" } }
             ]
         }]
     ]);
+
+    constructor(private aliases: Map<string, string> = new Map()) {}
 
     analyze(program: Statement[]) {
         for (const stmt of program) {
@@ -300,6 +302,16 @@ export class SemanticAnalyzer {
         return false;
     }
 
+    simpleTypeIsAllowed(type: TypeNode): boolean {
+        if (type.kind !== 'SimpleType')
+            throw new Error('shouldn\'t happen');
+        let typeName = type.name;
+        if (typeName.startsWith('*'))
+            typeName = typeName.slice(1);
+        return allowed_types.includes(typeName) ||
+               allowed_types.includes(`*${typeName}`);
+    }
+
     validateType(tp: TypeNode, i: number = 0) {
         if (i == 15)
             throw new Error("Type depth limit reached");
@@ -312,7 +324,7 @@ export class SemanticAnalyzer {
         }
 
         // SimpleType
-        if (!allowed_types.includes(tp.name) && !this.structs.has(tp.name)) 
+        if (!this.simpleTypeIsAllowed(tp) && !this.structs.has(tp.name)) 
             error({
                 code: ErrorCode.UNKNOWN_TYPE,
                 reason: `Unknown type: ${tp.name}`,
@@ -407,6 +419,17 @@ export class SemanticAnalyzer {
         return false;
     }
 
+    private resolveType(type: TypeNode): TypeNode {
+        if (type.kind === "SimpleType") {
+            let name = type.name;
+            while (this.aliases.has(name)) {
+                name = this.aliases.get(name)!;
+            }
+            return { ...type, name };
+        }
+        return type;
+    }
+
     visitExpression(expr: Expression): TypeNode | null {
         switch (expr.type) {
             case "IfExpression":
@@ -416,7 +439,7 @@ export class SemanticAnalyzer {
                 return { kind: "SimpleType", name: "i64" };
 
             case "StringLiteral":
-                return { kind: "SimpleType", name: "cstring" };
+                return { kind: "SimpleType", name: "*u8" };
 
             case "Identifier": {
                 const sym = this.current.resolve(expr.name);
@@ -450,14 +473,16 @@ export class SemanticAnalyzer {
 
                 for (let i = 0; i < expr.arguments.length; i++) {
                     const argType = this.visitExpression(expr.arguments[i]);
-                    const paramType = calleeType!.params[i];
+                    const paramType = this.resolveType(calleeType!.params[i]);
+                    
+                    const resolvedArgType = argType ? this.resolveType(argType) : null;
 
                     if (paramType.kind === "SimpleType" && paramType.name === "string" && expr.arguments[i].type === "StringLiteral") {
                         // allow StringLiteral as 'string' struct
-                    } else if (argType?.kind === "SimpleType" && paramType.kind === "SimpleType" && argType.name !== paramType.name) {
+                    } else if (resolvedArgType?.kind === "SimpleType" && paramType.kind === "SimpleType" && resolvedArgType.name !== paramType.name) {
                         error({
                             code: ErrorCode.TYPE_MISMATCH,
-                            reason: `Argument type mismatch: expected ${paramType.name}, got ${argType.name}`
+                            reason: `Argument type mismatch: expected ${paramType.name}, got ${resolvedArgType.name}`
                         });
                     }
                 }
@@ -590,16 +615,19 @@ export class SemanticAnalyzer {
                     }
 
                     const valType = this.visitExpression(field.value);
-                    if (structField!.type.kind === "SimpleType" && structField!.type.name === "string" && field.value.type === "StringLiteral") {
+                    const structFieldType = this.resolveType(structField!.type);
+                    const resolvedValType = valType ? this.resolveType(valType) : null;
+                    
+                    if (structFieldType.kind === "SimpleType" && structFieldType.name === "string" && field.value.type === "StringLiteral") {
                         // allow StringLiteral for 'string' struct field
                     } else if (
-                        valType?.kind === "SimpleType" &&
-                        structField!.type.kind === "SimpleType" &&
-                        valType.name !== structField!.type.name
+                        resolvedValType?.kind === "SimpleType" &&
+                        structFieldType.kind === "SimpleType" &&
+                        resolvedValType.name !== structFieldType.name
                     ) {
                         error({
                             code: ErrorCode.TYPE_MISMATCH,
-                            reason: `Field ${field.name} type mismatch: expected ${structField!.type.name}, got ${valType.name}`,
+                            reason: `Field ${field.name} type mismatch: expected ${structFieldType.name}, got ${resolvedValType.name}`,
                         });
                     }
                 }
@@ -610,11 +638,12 @@ export class SemanticAnalyzer {
     }
 
     private typeName(tp: TypeNode): string {
-        if (tp.kind === "SimpleType") return tp.name;
-        if (tp.kind === "FunctionType") {
+        const resolved = this.resolveType(tp);
+        if (resolved.kind === "SimpleType") return resolved.name;
+        if (resolved.kind === "FunctionType") {
             return `function(${
-                tp.params.map((t) => this.typeName(t)).join(", ")
-            }): ${this.typeName(tp.returnType)}`;
+                resolved.params.map((t) => this.typeName(t)).join(", ")
+            }): ${this.typeName(resolved.returnType)}`;
         }
         return "unknown";
     }
@@ -624,20 +653,24 @@ export class SemanticAnalyzer {
         actual: TypeNode,
         expr?: Expression
     ): boolean {
-        if (expected.kind === "SimpleType" && actual.kind === "SimpleType") {
-            if (expected.name === actual.name) return true;
+        const resolvedExpected = this.resolveType(expected);
+        const resolvedActual = this.resolveType(actual);
+        
+        if (resolvedExpected.kind === "SimpleType" && resolvedActual.kind === "SimpleType") {
+            if (resolvedExpected.name === resolvedActual.name) return true;
             if (
-                expected.name === "string" &&
-                actual.name === "cstring" &&
+                resolvedExpected.name === "string" &&
+                resolvedActual.name === "*u8" &&
                 expr?.type === "StringLiteral"
             ) {
                 return true;
             }
+
             return false;
         }
         // Basic check for other types
-        if (expected.kind !== actual.kind) return false;
-        return this.typeName(expected) === this.typeName(actual);
+        if (resolvedExpected.kind !== resolvedActual.kind) return false;
+        return this.typeName(resolvedExpected) === this.typeName(resolvedActual);
     }
 
     visitFunction(fn: FunctionDeclaration): boolean {

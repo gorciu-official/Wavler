@@ -11,6 +11,7 @@ import {
     ReturnStatement,
     Statement,
     StructDeclaration,
+    TypeAliasDeclaration,
     TypeNode,
     VariableDeclaration,
 } from "../definitions/ast-node.ts";
@@ -25,7 +26,6 @@ interface BindingPower {
 
 export class Parser {
     private pos = 0;
-    private type_aliases: { name: string, base_type: string }[] = [];
 
     constructor(private tokens: Token[]) {}
 
@@ -126,8 +126,7 @@ export class Parser {
                 return this.parseFor();
 
             case TokenType.TYPE_KEYWORD:
-                this.type_aliases.push(this.parseTypeAliases());
-                return { type: "EmptyStatement" };
+                return this.parseTypeAliases();
 
             default:
                 return this.parseExpressionStatement();
@@ -560,30 +559,32 @@ export class Parser {
     }
 
     private parsePrimaryType(): TypeNode {
+        const isPtr = this.match(TokenType.STAR_SIGN);
+
         const token = this.expect(
             TokenType.IDENTIFIER,
             "Expected type identifier"
         ) as BaseToken<TokenType.IDENTIFIER, string>;
 
-        const type_alias = this.type_aliases.find(i => i.name == token.value)
-        if (type_alias)
-            return {
-                kind: "SimpleType",
-                name: type_alias.base_type
-            }
-
         return {
             kind: "SimpleType",
-            name: token.value,
+            name: (isPtr ? "*" : "") + token.value,
         };
     }
 
-    private parseTypeAliases() {
+    private parseTypeAliases(): TypeAliasDeclaration {
         this.advance();
+
         const name = (this.expect(TokenType.IDENTIFIER, "Expected type alias name") as BaseToken<TokenType.IDENTIFIER, string>).value;
         this.expect(TokenType.ASSIGN_SIGN, "Expected = after type alias name");
-        const base_type = (this.expect(TokenType.IDENTIFIER, "Expected type name") as BaseToken<TokenType.IDENTIFIER, string>).value;
+
+        const isPtr = this.match(TokenType.STAR_SIGN);
+        let base_type = (this.expect(TokenType.IDENTIFIER, "Expected type name") as BaseToken<TokenType.IDENTIFIER, string>).value;
+        
+        if (isPtr) base_type = `*${base_type}`;
+
         return {
+            type: "TypeAliasDeclaration",
             name, base_type
         };
     }
